@@ -2,9 +2,9 @@
 # Ben Levi 318811304
 
 import socket
+import sys
 
 s = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
-
 s.connect(('192.168.129.128', 12345))
 
 s.send(b'Ben levi')

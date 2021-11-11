@@ -2,24 +2,34 @@
 # Ben Levi 318811304
 
 import socket
+import sys
+import os
 
 server = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
+PORT = int(sys.argv[1])
+PATH = path = os.path.abspath(os.getcwd()) + '/Clients'
+server.bind(('', PORT))
+server.listen(1)
+def createFolder() :
+    if not os.path.exists(PATH):
+        os.mkdir(path)
 
-server.bind(('', 12345))
+def checkId(id) :
+    listId = os.listdir(PATH)
+    for name in listId:
+        if name == id:
+            return True
+    return False
 
-server.listen(5)
+def getId():
+
 
 while True:
     client_socket, client_address = server.accept()
-    print('Connection from: ', client_address)
+    data = client_socket.recv(1024)
+    if not checkId(data):
+        newId = getId()
 
-    data = client_socket.recv(100)
-    print('Received: ', data)
-    client_socket.send(data.upper())
-
-    data = client_socket.recv(100)
-    print('Received: ', data)
     client_socket.send(data.upper())
 
     client_socket.close()
-    print('Client disconnected')
