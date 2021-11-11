@@ -1,3 +1,6 @@
+# Itay Etelis 209041474
+# Ben Levi 318811304
+
 import socket
 
 server = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
