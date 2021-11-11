@@ -24,11 +24,26 @@ def getId():
     os.mkdir(PATH + '/' + id)
     return id
 
-def newClient() :
+def newClient():
     clientId = getId()
-    client_socket.send(bytes(clientId))
+    client_socket.send(clientId.encode('utf8'))
     clientPath = givePath(clientId)
 
+    numFiles = int.from_bytes(client_socket.recv(1024), 'little')
+
+    for indexFile in range(numFiles):
+        reativePath = client_socket.recv(1024).decode('utf8')
+
+        file = open(clientPath + reativePath, "wb")
+
+        fileSize = int.from_bytes(client_socket.recv(1024), 'little')
+        tempSize = 0
+
+        while tempSize < fileSize:
+            data = client_socket.recv(1024)
+            tempSize += len(data)
+            file.write(data)
+        file.close()
 
 
 
