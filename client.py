@@ -9,24 +9,29 @@ import time
 s = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
 s.connect(('192.168.129.128', 12345))
 PATH = os.path.abspath(os.getcwd()) + '/check'
-s.send(int.to_bytes(0, 4, 'little'))
-time.sleep(1)
 
-s.send(int.to_bytes(2, 4, 'little'))
-time.sleep(1)
+s.send('KCgeBzEKzY8045PfVRwC0aphrfwmZAfabFZEh5DVS5kGfVZwAoOobOnhksQo4zIOyrfKps2Ku1VtM12pNzGug11DD3bwYsJemLsDONvWdgE62GrGK8E1o9FTC8P0t0Pl'.encode('utf8'))
 
-s.send('/c'.encode('utf8'))
-time.sleep(1)
+numFiles = int.from_bytes(s.recv(1024), 'little')
 
-file = open(PATH + '/c', "rb")
-s.send(int.to_bytes(os.path.getsize(PATH + '/c'), 4, 'little'))
-time.sleep(1)
+for indexFile in range(numFiles):
+    relativePath = s.recv(1024).decode('utf8')
+    fileName = relativePath.split('/')[-1]
+    relativePath = relativePath[0:relativePath.find(fileName)]
 
-file_data = file.read(1024)
-while file_data:
-    s.send(file_data)
-    file_data = file.read(1024)
-file.close()
+    if not os.path.exists(PATH + relativePath):
+        os.makedirs(PATH + relativePath)
+
+    file = open(PATH + relativePath + '/' + fileName, "wb")
+
+    fileSize = int.from_bytes(s.recv(1024), 'little')
+    tempSize = 0
+
+    while tempSize < fileSize:
+        data = s.recv(1024)
+        tempSize += len(data)
+        file.write(data)
+    file.close()
 
 
 s.close()
