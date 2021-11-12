@@ -38,9 +38,15 @@ def newClient():
     numFiles = int.from_bytes(client_socket.recv(1024), 'little')
 
     for indexFile in range(numFiles):
-        reativePath = client_socket.recv(1024).decode('utf8')
+        relativePath = client_socket.recv(1024).decode('utf8')
 
-        file = open(clientPath + reativePath, "wb")
+        fileName = relativePath.split('/')[-1]
+        relativePath = relativePath[0:relativePath.find(fileName)]
+
+        if not os.path.exists(clientPath + relativePath):
+            os.makedirs(clientPath + relativePath)
+
+        file = open(clientPath + relativePath + '/' + fileName, "wb")
 
         fileSize = int.from_bytes(client_socket.recv(1024), 'little')
         tempSize = 0
@@ -81,6 +87,5 @@ while True:
         newClient()
     else:
         existClient(data)
-
 
     client_socket.close()
