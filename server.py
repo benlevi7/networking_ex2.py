@@ -14,7 +14,7 @@ server.bind(('', PORT))
 server.listen(1)
 
 
-def createFolder() :
+def createFolder():
     if not os.path.exists(PATH):
         os.mkdir(PATH)
 

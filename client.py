@@ -8,12 +8,47 @@ import time
 import watchdog
 from watchdog.events import PatternMatchingEventHandler
 from watchdog.observers import Observer
+from watchdog.events import FileSystemEventHandler
 
-"""
+###########################################################################################
+
+
+class Watcher:
+    def __init__(self, path):
+        self.my_observer = Observer()
+        self.path = path
+
+    def run(self):
+        my_event_handler = Handler()
+        self.my_observer.schedule(my_event_handler, self.path, recursive=True)
+        self.my_observer.start()
+        try:
+            while True:
+                time.sleep(5)
+        except KeyboardInterrupt:
+            self.my_observer.stop()
+        self.my_observer.join()
+
+###########################################################################################
+
+
+class Handler(FileSystemEventHandler):
+    def on_any_event(self, event):
+        if event.event_type == 'created':
+            print(f"{event.src_path} has been created!")
+        elif event.event_type == 'deleted':
+            print(f"Someone deleted {event.src_path}!")
+        elif event.event_type == 'moved':
+            print(f"someone moved {event.src_path} to {event.dest_path}")
+
+###########################################################################################
+
+
 IP = sys.argv[1]
 PORT = sys.argv[2]
 PATH = sys.argv[3]
 TIME = sys.argv[4]
+
 if len(sys.argv) == 6:
     ID = sys.argv[5]
 else:
@@ -21,6 +56,7 @@ else:
 
 s = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
 s.connect((IP, PORT))
+
 
 def pushData():
     numFiles = sum(len(files) for _, _, files in os.walk(PATH))
@@ -65,43 +101,10 @@ if ID == 0:
 else:
     pullData()
 
-"""
 
-PATH = "/home/benle/PycharmProjects/networking_ex2.py/check"
-
-patterns = ["*"]
-ignore_patterns = None
-ignore_directories = False
-case_sensitive = True
-my_event_handler = PatternMatchingEventHandler(patterns, ignore_patterns, ignore_directories, case_sensitive)
-
-def on_created(event):
-     print(f"{event.src_path} has been created!")
-
-def on_deleted(event):
-     print(f"Someone deleted {event.src_path}!")
+w = Watcher(PATH)
+w.run()
 
 
-def on_moved(event):
-    print(f"someone moved {event.src_path} to {event.dest_path}")
+s.close()
 
-
-my_event_handler.on_created = on_created
-my_event_handler.on_deleted = on_deleted
-my_event_handler.on_moved = on_moved
-
-path = PATH
-go_recursively = True
-my_observer = Observer()
-my_observer.schedule(my_event_handler, path, recursive=go_recursively)
-
-my_observer.start()
-try:
-    while True:
-        time.sleep(1)
-except KeyboardInterrupt:
-    my_observer.stop()
-    my_observer.join()
-
-
-#s.close()
