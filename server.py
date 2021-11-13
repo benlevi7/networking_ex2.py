@@ -30,6 +30,28 @@ def getId():
     return id
 
 
+def fileCreation(clientPath):
+    relativePath = client_socket.recv(1024).decode('utf8')
+    fileName = relativePath.split('/')[-1]
+    relativePath = relativePath[0:relativePath.find(fileName)]
+
+    if not os.path.exists(clientPath + relativePath):
+        os.makedirs(clientPath + relativePath)
+
+    file = open(clientPath + relativePath + '/' + fileName, "wb")
+    byteStream = client_socket.recv(1024)
+    while byteStream:
+        byteStream = client_socket.recv(1024)
+        file.write(byteStream)
+    file.close()
+
+
+def fileDeletion(clientPath):
+    relativePath = client_socket.recv(1024).decode('utf8')
+    if os.path.exists(clientPath + relativePath):
+        os.remove(clientPath + relativePath)
+
+
 def newClient():
     clientId = getId()
     client_socket.send(clientId.encode('utf8'))
@@ -56,6 +78,7 @@ def newClient():
             tempSize += len(data)
             file.write(data)
         file.close()
+    return clientPath
 
 
 def existClient(id):
@@ -77,15 +100,24 @@ def existClient(id):
                 client_socket.send(file_data)
                 file_data = file.read(1024)
             file.close()
-
+    return clientPath
 
 
 while True:
     client_socket, client_address = server.accept()
     data = client_socket.recv(1024)
     if len(data.decode('utf8')) != 128:
-        newClient()
+        clientPath = newClient()
     else:
-        existClient(data)
+        clientPath = existClient(data)
 
-    client_socket.close()
+    while True:
+        data = client_socket.recv(1024)
+        if data == b'NEW_FILE':
+            fileCreation(clientPath)
+        elif data == b'DELETE_FILE':
+            fileDeletion(clientPath)
+        elif data == b'MOVE_FILE':
+            fileDeletion(clientPath)
+            fileCreation(clientPath)
+        elif not data: break

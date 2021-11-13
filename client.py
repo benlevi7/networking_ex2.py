@@ -10,6 +10,18 @@ from watchdog.events import PatternMatchingEventHandler
 from watchdog.observers import Observer
 from watchdog.events import FileSystemEventHandler
 
+IP = sys.argv[1]
+PORT = int(sys.argv[2])
+PATH = sys.argv[3]
+TIME = sys.argv[4]
+try:
+    ID = sys.argv[5]
+except:
+    ID = '0'
+
+s = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
+s.connect((IP, PORT))
+
 ###########################################################################################
 
 
@@ -36,26 +48,14 @@ class Handler(FileSystemEventHandler):
     def on_any_event(self, event):
         if event.event_type == 'created':
             print(f"{event.src_path} has been created!")
+            s.send(b'NEW_FILE')
         elif event.event_type == 'deleted':
             print(f"Someone deleted {event.src_path}!")
+            s.send(b'DELETE_FILE')
         elif event.event_type == 'moved':
             print(f"someone moved {event.src_path} to {event.dest_path}")
 
 ###########################################################################################
-
-
-IP = sys.argv[1]
-PORT = sys.argv[2]
-PATH = sys.argv[3]
-TIME = sys.argv[4]
-
-if len(sys.argv) == 6:
-    ID = sys.argv[5]
-else:
-    ID = 0
-
-s = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
-s.connect((IP, PORT))
 
 
 def pushData():
@@ -100,7 +100,6 @@ if ID == 0:
     pushData()
 else:
     pullData()
-
 
 w = Watcher(PATH)
 w.run()
