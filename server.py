@@ -12,7 +12,7 @@ server = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
 PORT = int(sys.argv[1])
 PATH = os.path.abspath(os.getcwd()) + '/Clients'
 server.bind(('', PORT))
-server.listen(1)
+server.listen()
 
 
 # on first server's run, create client's main folder if not created previously.
@@ -24,6 +24,7 @@ def create_main_directory():
 # verify if client is an existing client.
 def verify_existing_client(client_id):
     if os.path.exists(get_client_path(client_id)):
+        print('fountID')
         return True
     return False
 
@@ -35,7 +36,7 @@ def get_client_path(client_id):
 # generate new ID using characters and numbers.
 def generate_id():
     characters = string.ascii_uppercase + string.ascii_lowercase + string.digits
-    client_id = ''.join(random.choice(characters) for i in range(128))
+    client_id = ''.join(random.choice(characters) for i in range(64))
     os.mkdir(PATH + '/' + client_id)
     return client_id
 
@@ -70,9 +71,7 @@ def pull_delete_file(client_path):
 
 
 # if client is a new client - create client's folder and pull all client's data to folder.
-def pull_data_new_client():
-    client_id = generate_id()
-    client_socket.send(client_id.encode('utf8'))
+def pull_data_new_client(client_id):
     client_path = get_client_path(client_id)
     # get number of files expected to be received.
     numFiles = int.from_bytes(client_socket.recv(1024), 'little')
@@ -80,13 +79,12 @@ def pull_data_new_client():
     for indexFile in range(numFiles):
         # receive each file.
         pull_new_file(client_path)
-    return client_path
 
 
 # If client is an existing client, push all data in server's folder to client.
 def push_data_existing_client(client_id):
     # get client's folder path.
-    client_path = get_client_path(client_id.decode('utf8'))
+    client_path = get_client_path(client_id)
     # count number of files in folder.
     numFiles = sum(len(files) for _, _, files in os.walk(client_path))
     # send client number of files to expect.
@@ -109,36 +107,50 @@ def push_data_existing_client(client_id):
                 client_socket.send(file_data)
                 file_data = file.read(1024)
             file.close()
-    return client_path
+
+
+def check_update(client_id, data):
+    client_path = get_client_path(client_id)
+    if data == b'UPDATE_TIME':
+        client_socket.send(dict[client_id])
+        data = client_socket.recv(1024)
+        if data == b'PULL_ALL':
+            push_data_existing_client(client_id)
+    # if NEW_FILE comment received - move to creating requested file.
+    elif data == b'NEW_FILE':
+        pull_new_file(client_path)
+        dict[client_id] = str(time.time()).encode('utf8')
+    # if DELETE_FILE comment received - move to deleting requested file.
+    elif data == b'DELETE_FILE':
+        pull_delete_file(client_path)
+        dict[client_id] = str(time.time()).encode('utf8')
+    # if MOVE_FILE comment received - move to deleting and re-adding requested file.
+    elif data == b'MOVE_FILE':
+        pull_delete_file(client_path)
+        pull_new_file(client_path)
+        dict[client_id] = str(time.time()).encode('utf8')
 
 
 create_main_directory()
+dict = {}
 # Main loop of the program will run as long as server is up.
 while True:
     # Accept new client.
     client_socket, client_address = server.accept()
     # Receive client ID.
-    data = client_socket.recv(1024)
-
+    client_id = client_socket.recv(1024).decode('utf-8')
+    print(client_id)
     # verify received id - if exists push all folders to client, otherwise create new client and pull data.
-    if verify_existing_client(data.decode('utf-8')):
-        clientPath = push_data_existing_client(data)
+    if verify_existing_client(client_id):
+        data = client_socket.recv(1024)
+        if data == b'SYN_DATA':
+            push_data_existing_client(client_id)
+        else:
+            check_update(client_id, data)
     else:
-        clientPath = pull_data_new_client()
-
-    try:
-        # after initializing client wait for changes to occur in folder and modify per request.
-        while True:
-            data = client_socket.recv(1024)
-            # if NEW_FILE comment received - move to creating requested file.
-            if data == b'NEW_FILE':
-                pull_new_file(clientPath)
-            # if DELETE_FILE comment received - move to deleting requested file.
-            elif data == b'DELETE_FILE':
-                pull_delete_file(clientPath)
-            # if MOVE_FILE comment received - move to deleting and re-adding requested file.
-            elif data == b'MOVE_FILE':
-                pull_delete_file(clientPath)
-                pull_new_file(clientPath)
-    except SocketError:
-        client_socket.close()
+        print('new_client')
+        client_id = generate_id()
+        client_socket.send(client_id.encode('utf8'))
+        pull_data_new_client(client_id)
+        dict[client_id] = str(time.time()).encode('utf8')
+    client_socket.close()
