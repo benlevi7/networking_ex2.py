@@ -77,7 +77,14 @@ class Watcher:
 
 
 def send_created_file(src_path):
+    global s
+    s = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
+    time.sleep(1)
+    s.connect((IP, PORT))
+    s.send(ID.encode('utf8'))
+    time.sleep(1)
     relativePath = str(src_path)[str(src_path).find(PATH) + len(PATH):len(str(src_path))]
+    print(relativePath)
     file = open(str(src_path), "rb")
     s.send(b'NEW_FILE')
     time.sleep(1)
@@ -93,8 +100,14 @@ def send_created_file(src_path):
 
 
 def delete_file(src_path):
+    global s
+    s = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
+    time.sleep(1)
+    s.send(ID.encode('utf8'))
+    time.sleep(1)
     relativePath = str(src_path)[str(src_path).find(PATH) + len(PATH):len(str(src_path))]
     print(relativePath)
+    time.sleep(1)
     s.send(b'DELETE_FILE')
     time.sleep(1)
     s.send(relativePath.encode('utf8'))
@@ -103,24 +116,15 @@ def delete_file(src_path):
 class Handler(FileSystemEventHandler):
 
     def on_any_event(self, event):
-        global s
-        s = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
-        time.sleep(1)
         if event.event_type == 'created':
-            s.connect((IP, PORT))
-            s.send(ID.encode('utf8'))
             print(f"{event.src_path} has been created!")
             send_created_file(event.src_path)
 
         elif event.event_type == 'deleted':
-            s.connect((IP, PORT))
-            s.send(ID.encode('utf8'))
             print(f"Someone deleted {event.src_path}!")
             delete_file(event.src_path)
 
         elif event.event_type == 'moved':
-            s.connect((IP, PORT))
-            s.send(ID.encode('utf8'))
             print(f"someone moved {event.src_path} to {event.dest_path}")
             delete_file(event.src_path)
             send_created_file(event.dest_path)
@@ -140,15 +144,22 @@ def pushData():
             print(relative_path)
             s.send(relative_path.encode('utf8'))
             time.sleep(1)
-            s.send(int.to_bytes(os.path.getsize(PATH + '/' + relative_path), 4, 'little'))
-            time.sleep(1)
-            file = open(PATH + '/' + relative_path, "rb")
-            print(PATH + '/' + relative_path, "rb")
-            file_data = file.read(1024)
-            while file_data:
-                s.send(file_data)
+            if os.path.isfile(PATH + '/' + relative_path):
+                s.send(int.to_bytes(os.path.getsize(PATH + '/' + relative_path), 4, 'little'))
+                time.sleep(1)
+                file = open(PATH + relative_path, "rb")
+                print(PATH + relative_path, "rb")
                 file_data = file.read(1024)
-            file.close()
+                while file_data:
+                    s.send(file_data)
+                    file_data = file.read(1024)
+                file.close()
+
+        for name in dirs:
+            relative_path = os.path.join(root[len(PATH):], name)
+            print(relative_path)
+            s.send(relative_path.encode('utf8'))
+            time.sleep(1)
 
 
 def pullData():
