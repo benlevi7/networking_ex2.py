@@ -37,7 +37,7 @@ def verify_existing_client(client_id):
 
 # return client's path by providing an id.
 def get_client_path(client_id):
-    return PATH + '/' + client_id
+    return PATH + '/' + client_id + '/'
 
 
 # generate new ID using characters and numbers.
@@ -58,11 +58,13 @@ def pull_new_file(client_path):
     if not os.path.exists(client_path + relative_path):
         os.makedirs(client_path + relative_path)
 
-    print(client_path + relative_path + file_name)
+    print(client_path  + relative_path + file_name)
     file_size = int(clientfile.readline())
+    print('filesize :   ' + str(file_size))
     byte_stream = clientfile.read(file_size)
-    with open(os.path.join(client_path, relative_path, file_name), 'wb') as f:
+    with open((client_path + relative_path + file_name), 'wb') as f:
         f.write(byte_stream)
+    print('finished creating file')
 
 
 # If client is an existing client, push all data in server's folder to client.
@@ -78,14 +80,14 @@ def push_data_existing_client(existing_client_id):
     for root, dirs, files in os.walk(client_path):
         for name in files:
             # get relative path by removing the prefix.
-            relative_path = os.path.join(root[len(client_path):], name)
+            relative_path = (root[len(client_path):] + '/' +  name)
             send_string(client_socket, relative_path)
             time.sleep(1)
             # send size of the data expected to be sent.
             send_int(client_socket, os.path.getsize(client_path + relative_path))
             time.sleep(1)
             # send all file's data to client.
-            with open(os.path.join(client_path, relative_path), 'rb') as f:
+            with open((client_path + relative_path), 'rb') as f:
                 client_socket.sendall(f.read())
 
             time.sleep(1)
@@ -115,14 +117,17 @@ def pull_data_new_client(client_id):
         pull_new_file(client_path)
     num_empty_dirs = int(clientfile.readline().decode())
     for i in range(num_empty_dirs):
-        os.makedirs(client_path + clientfile.readline().strip().decode())
+        os.makedirs(client_path + clientfile.readline().strip().decode(), exist_ok=True)
 
 
 # per request delete requested file.
 def pull_delete_file(client_path):
     relative_path = clientfile.readline().strip().decode()
-    if os.path.exists(client_path + relative_path):
-        os.remove(client_path + relative_path)
+    try:
+        if os.path.exists(client_path + relative_path):
+            os.remove(client_path + relative_path)
+    except os.error:
+        os.removedirs(client_path + relative_path)
 
 
 def pull_delete_dir(client_path):
@@ -133,25 +138,30 @@ def pull_delete_dir(client_path):
 
 def check_update(client_id, comment):
     global dict
+    print(comment)
     client_path = get_client_path(client_id)
-    if comment == b'UPDATE_TIME':
+    if comment == 'UPDATE_TIME':
         send_string(client_socket, dict[client_id])
         time.sleep(1)
         comment = clientfile.readline().strip().decode()
-        if comment == b'PULL_ALL':
+        if comment == 'PULL_ALL':
             push_data_existing_client(client_id)
     # if NEW_FILE comment received - move to creating requested file.
-    elif comment == b'NEW_FILE':
-        pull_new_file(client_path)
+    elif comment == 'NEW_FILE':
+        print('will make newfile')
+        try:
+            pull_new_file(client_path)
+        except os.error:
+            os.makedirs(client_path + clientfile.readline().strip().decode(), exist_ok=True)
         dict[client_id] = str(time.time())
-    elif comment == b'NEW_DIR':
-        os.makedirs(client_path + clientfile.readline().strip().decode())
+    elif comment == 'NEW_DIR':
+        os.makedirs(client_path + clientfile.readline().strip().decode(), exist_ok=True)
         dict[client_id] = str(time.time())
     # if DELETE_FILE comment received - move to deleting requested file.
-    elif comment == b'DELETE_FILE':
+    elif comment == 'DELETE_FILE':
         pull_delete_file(client_path)
         dict[client_id] = str(time.time())
-    elif comment == b'DELETE_DIR':
+    elif comment == 'DELETE_DIR':
         pull_delete_dir(client_path)
         dict[client_id] = str(time.time())
 
@@ -168,8 +178,8 @@ while True:
         print(client_id)
         # verify received id - if exists push all folders to client, otherwise create new client and pull data.
         if verify_existing_client(client_id):
-            comment = clientfile.readline().strip()
-            if comment == b'SYN_DATA':
+            comment = clientfile.readline().strip().decode()
+            if comment == 'SYN_DATA':
                 push_data_existing_client(client_id)
             else:
                 check_update(client_id, comment)
@@ -178,4 +188,6 @@ while True:
             send_string(client_socket, client_id)
             pull_data_new_client(client_id)
             dict[client_id] = str(time.time())
+        clientfile.close()
+
 

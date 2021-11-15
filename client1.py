@@ -42,7 +42,7 @@ class Client:
             self.id = str(sys.argv[5])
             send_int(self.s, self.id)
             time.sleep(1)
-            self.s.sendall(b'SYN_DATA')
+            send_string(self.s, 'SYN_DATA')
             time.sleep(1)
             self.pull_data()
 
@@ -80,15 +80,15 @@ class Client:
         for root, dirs, files in os.walk(PATH):
             for name in files:
                 print(root)
-                relative_path = root[len(PATH):] + name
-                print(relative_path)
+                relative_path = root[len(PATH):] + '/' + name
+                if relative_path[0] == '/':
+                    relative_path = relative_path[1:]
                 send_string(self.s, relative_path)
                 time.sleep(0.5)
                 send_int(self.s, os.path.getsize(PATH + relative_path))
                 time.sleep(0.5)
-                with open(os.path.join(PATH, relative_path), 'rb') as f:
+                with open((PATH + relative_path), 'rb') as f:
                     self.s.sendall(f.read())
-
 
         time.sleep(1)
         send_int(self.s, len(list_of_empty_dirs))
@@ -104,11 +104,11 @@ class Client:
         relative_path = relative_path[0:relative_path.find(file_name)]
 
         if not os.path.exists(PATH + relative_path):
-            os.makedirs(os.path.join(PATH, relative_path))
+            os.makedirs((PATH + relative_path), exist_ok=True)
 
         file_size = int(self.clientfile.readline())
         byte_stream = self.clientfile.read(file_size)
-        with open(os.path.join(PATH, relative_path, file_name), 'wb') as f:
+        with open((PATH + relative_path +  file_name), 'wb') as f:
             f.write(byte_stream)
 
     def pull_data(self):
@@ -121,16 +121,17 @@ class Client:
 
         num_empty_dirs = int(self.clientfile.readline())
         for i in range(num_empty_dirs):
-            os.makedirs(os.path.join(PATH + self.clientfile.readline().strip().decode()))
+            os.makedirs(PATH + self.clientfile.readline().strip().decode(), exist_ok=True)
 
     def get_updates(self):
         send_string(self.s, self.id)
         time.sleep(1)
-        self.s.sendall(b'UPDATE_TIME')
+
+        send_string(self.s, 'UPDATE_TIME')
         time.sleep(1)
         update_time = self.clientfile.readline().strip().decode()
         if update_time > str(self.start):
-            self.s.sendall(b'PULL_ALL')
+            send_string(self.s, 'PULL_ALL')
             time.sleep(1)
             for root, dirs, files in os.walk(PATH, topdown=False):
                 for name in files:
@@ -139,7 +140,7 @@ class Client:
                     os.rmdir(os.path.join(root, name))
             self.pull_data()
         else:
-            self.s.sendall(b'CONTINUE')
+            send_string(self.s, 'CONTINUE')
         self.start = time.time()
 
 
@@ -167,23 +168,21 @@ class Watcher:
         self.my_observer.join()
 
 
-
 class Handler(FileSystemEventHandler):
     def __init__(self, client):
         self.client = client
-
 
     def send_created_file(self, src_path):
         send_string(self.client.s, self.client.get_id())
         time.sleep(1)
         relative_path = str(src_path)[len(PATH):]
         if os.path.isdir(src_path):
-            self.client.s.sendall(b'NEW_DIR')
+            send_string(self.client.s, 'NEW_DIR')
             time.sleep(1)
             send_string(self.client.s, relative_path)
             time.sleep(1)
         else:
-            self.client.s.sendall(b'NEW_FILE')
+            send_string(self.client.s, 'NEW_FILE')
             time.sleep(1)
             send_string(self.client.s, relative_path)
             time.sleep(1)
@@ -198,15 +197,15 @@ class Handler(FileSystemEventHandler):
         relative_path = str(src_path)[len(PATH):]
         print(src_path)
         if os.path.isdir(src_path):
-            self.client.s.sendall(b'DELETE_DIR')
+            send_string(self.client.s, 'DELETE_DIR')
             time.sleep(1)
         else:
-            self.client.s.sendall(b'DELETE_FILE')
+            send_string(self.client.s, 'DELETE_FILE')
             time.sleep(1)
         send_string(self.client.s, relative_path)
 
-
     def on_any_event(self, event):
+        print('event occured')
         if PAUSED:
             return
         self.client.socket_rst()
