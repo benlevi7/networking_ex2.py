@@ -23,7 +23,6 @@ def create_main_directory():
 
 # verify if client is an existing client.
 def verify_existing_client(client_id):
-    print(client_id)
     if os.path.exists(get_client_path(client_id)):
         return True
     return False
@@ -48,13 +47,12 @@ def pull_new_file(client_path):
     relative_path = client_socket.recv(1024).decode()
     file_name = relative_path.split('/')[-1]
     relative_path = relative_path[0:relative_path.find(file_name)]
-    print(relative_path)
 
     if not os.path.exists(client_path + relative_path):
         os.makedirs(client_path + relative_path)
 
     print(client_path + relative_path + file_name)
-    file = open((client_path + relative_path + file_name).strip(), "wb")
+    file = open((client_path + relative_path + file_name), "wb")
     file_size = int.from_bytes(client_socket.recv(1024), 'little')
     temp_size = 0
 
@@ -70,27 +68,28 @@ def push_data_existing_client(existing_client_id):
     # get client's folder path.
     client_path = get_client_path(existing_client_id)
     # count number of files in folder.
-    numFiles = sum(len(files) for _, _, files in os.walk(client_path))
+    num_files = sum(len(files) for _, _, files in os.walk(client_path))
     # send client number of files to expect.
-    client_socket.send(int.to_bytes(numFiles, 4, 'little'))
+    client_socket.send(int.to_bytes(num_files, 4, 'little'))
     time.sleep(1)
     # for each file - send relative path, file's size and data.
     for root, dirs, files in os.walk(client_path):
         for name in files:
             # get relative path by removing the prefix.
             relative_path = os.path.join(root[len(client_path):], name)
-            client_socket.send(relative_path.encode('utf-8'))
+            client_socket.send(relative_path.encode('utf8'))
             time.sleep(1)
             # send size of the data expected to be sent.
-            client_socket.send(int.to_bytes(os.path.getsize(client_path + '/' + relative_path), 4, 'little'))
+            client_socket.send(int.to_bytes(os.path.getsize(client_path + relative_path), 4, 'little'))
             time.sleep(1)
             # send all file's data to client.
-            file = open(client_path + '/' + relative_path, "rb")
+            file = open(client_path + relative_path, "rb")
             file_data = file.read(1024)
             while file_data:
                 client_socket.send(file_data)
                 file_data = file.read(1024)
             file.close()
+            time.sleep(1)
 
     list_of_empty_dirs = list()
     for (dirpath, dirnames, filenames) in os.walk(PATH):
@@ -101,7 +100,7 @@ def push_data_existing_client(existing_client_id):
     client_socket.send(int.to_bytes(len(list_of_empty_dirs), 4, 'little'))
     time.sleep(1)
     for empty_dir in list_of_empty_dirs:
-        client_socket.send(str(empty_dir).encode('utf-8'))
+        client_socket.send(str(empty_dir).encode('utf8'))
         time.sleep(1)
 
 
@@ -111,6 +110,7 @@ def pull_data_new_client(client_id):
     # get number of files expected to be received.
     numFiles = int.from_bytes(client_socket.recv(1024), 'little')
     # iterate over all files and write them to folder.
+    print(numFiles)
     for indexFile in range(numFiles):
         # receive each file.
         pull_new_file(client_path)
@@ -167,6 +167,7 @@ while True:
     client_id = client_socket.recv(1024).decode('utf-8')
     # verify received id - if exists push all folders to client, otherwise create new client and pull data.
     if verify_existing_client(client_id):
+        print('exist ! ')
         data = client_socket.recv(1024)
         if data == b'SYN_DATA':
             push_data_existing_client(client_id)

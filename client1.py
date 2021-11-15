@@ -9,6 +9,7 @@ import watchdog
 from watchdog.events import PatternMatchingEventHandler
 from watchdog.observers import Observer
 from watchdog.events import FileSystemEventHandler
+
 IP = sys.argv[1]
 PORT = int(sys.argv[2])
 PATH = str(sys.argv[3])
@@ -37,6 +38,7 @@ class Client:
             time.sleep(1)
             self.id = self.s.recv(1024).decode('utf8')
             self.push_data()
+
         self.start = time.time()
         self.s.close()
 
@@ -62,12 +64,14 @@ class Client:
         time.sleep(1)
         for root, dirs, files in os.walk(PATH):
             for name in files:
-                relative_path = os.path.join(root[len(PATH) - 1:], name)
-                self.s.send(relative_path.encode())
+                print(root)
+                relative_path = root[len(PATH):] + '/' + name
+                print(relative_path)
+                self.s.send(relative_path.encode('utf8'))
                 time.sleep(0.5)
+                print(root + relative_path)
                 self.s.send(int.to_bytes(os.path.getsize(PATH + relative_path), 4, 'little'))
                 time.sleep(0.5)
-                print(PATH + '/' + relative_path)
                 file = open(PATH + relative_path, "rb")
                 file_data = file.read(1024)
                 while file_data:
@@ -79,12 +83,12 @@ class Client:
         self.s.send(int.to_bytes(len(list_of_empty_dirs), 4, 'little'))
         time.sleep(1)
         for empty_dir in list_of_empty_dirs:
-            self.s.send(str(empty_dir).encode())
+            self.s.send(empty_dir.encode('utf8'))
             time.sleep(1)
 
     # per request create requested file.
     def pull_new_file(self):
-        relative_path = self.s.recv(1024).decode('utf-8')
+        relative_path = self.s.recv(1024).decode('utf8')
         file_name = relative_path.split('/')[-1]
         relative_path = relative_path[0:relative_path.find(file_name)]
 
@@ -103,15 +107,15 @@ class Client:
 
     def pull_data(self):
         # get number of files expected to be received.
-        numFiles = int.from_bytes(self.s.recv(1024), 'little')
+        num_files = int.from_bytes(self.s.recv(1024), 'little')
         # iterate over all files and write them to folder.
-        for indexFile in range(numFiles):
+        for indexFile in range(num_files):
             # receive each file.
             self.pull_new_file()
 
         num_empty_dirs = int.from_bytes(self.s.recv(1024), 'little')
         for i in range(num_empty_dirs):
-            os.makedirs(PATH + self.s.recv(1024).decode('utf-8'))
+            os.makedirs(PATH + self.s.recv(1024).decode('utf8'))
 
     def get_updates(self):
         self.s.send(self.id.encode('utf8'))
@@ -165,19 +169,19 @@ class Handler(FileSystemEventHandler):
 
 
     def send_created_file(self, src_path):
-        self.client.s.send(self.client.get_id().encode('utf-8'))
+        self.client.s.send(self.client.get_id().encode('utf8'))
         time.sleep(1)
         relative_path = str(src_path)[len(PATH):]
         if os.path.isdir(src_path):
             self.client.s.send(b'NEW_DIR')
             time.sleep(1)
-            self.client.s.send(relative_path.encode('utf-8'))
+            self.client.s.send(relative_path.encode('utf8'))
             time.sleep(1)
         else:
             file = open(str(src_path), "rb")
             self.client.s.send(b'NEW_FILE')
             time.sleep(1)
-            self.client.s.send(relative_path.encode('utf-8'))
+            self.client.s.send(relative_path.encode('utf8'))
             time.sleep(1)
             self.client.s.send(int.to_bytes(os.path.getsize(src_path), 4, 'little'))
             time.sleep(1)
@@ -189,7 +193,7 @@ class Handler(FileSystemEventHandler):
 
 
     def delete_file(self, src_path):
-        self.client.s.send(self.client.get_id().encode('utf-8'))
+        self.client.s.send(self.client.get_id().encode('utf8'))
         time.sleep(1)
         relative_path = str(src_path)[len(PATH):]
         print(src_path)
@@ -197,10 +201,9 @@ class Handler(FileSystemEventHandler):
             self.client.s.send(b'DELETE_DIR')
             time.sleep(1)
         else:
-            print('delete_dir')
             self.client.s.send(b'DELETE_FILE')
             time.sleep(1)
-        self.client.s.send(relative_path.encode('utf-8'))
+        self.client.s.send(relative_path.encode('utf8'))
 
 
     def on_any_event(self, event):
@@ -217,6 +220,7 @@ class Handler(FileSystemEventHandler):
 
         elif event.event_type == 'moved':
             print(f"someone moved {event.src_path} to {event.dest_path}")
+            # problem if come new client between close to rst.
             self.delete_file(event.src_path)
             self.client.socket_close()
             self.client.socket_rst()
