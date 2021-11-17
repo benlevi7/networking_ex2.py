@@ -7,9 +7,10 @@ import sys
 import os
 import time
 
+SEP = os.path.sep
 server = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
 PORT = int(sys.argv[1])
-PATH = os.path.abspath(os.getcwd()) + '/Clients'
+PATH = os.path.abspath(os.getcwd()) + SEP + 'Clients'
 server.bind(('', PORT))
 server.listen()
 
@@ -29,14 +30,14 @@ def verify_existing_client(client_id):
 
 # return client's path by providing an id.
 def get_client_path(client_id):
-    return PATH + '/' + client_id
+    return PATH + SEP + client_id
 
 
 # generate new ID using characters and numbers.
 def generate_id():
     characters = string.ascii_uppercase + string.ascii_lowercase + string.digits
     generated_id = ''.join(random.choice(characters) for i in range(128))
-    os.mkdir(PATH + '/' + generated_id)
+    os.mkdir(PATH + SEP + generated_id)
     return generated_id
 
 
@@ -44,7 +45,7 @@ def generate_id():
 def pull_new_file(client_path):
 
     relative_path = client_socket.recv(1024).decode()
-    file_name = relative_path.split('/')[-1]
+    file_name = relative_path.split(SEP)[-1]
     relative_path = relative_path[0:relative_path.find(file_name)]
 
     if not os.path.exists(client_path + relative_path):

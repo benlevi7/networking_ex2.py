@@ -13,6 +13,7 @@ PORT = int(sys.argv[2])
 PATH = str(sys.argv[3])
 TIME = float(sys.argv[4])
 PAUSED = False
+SEP = os.path.sep
 
 
 class Client:
@@ -62,7 +63,7 @@ class Client:
         time.sleep(1)
         for root, dirs, files in os.walk(PATH):
             for name in files:
-                relative_path = root[len(PATH):] + '/' + name
+                relative_path = root[len(PATH):] + SEP + name
                 self.s.send(relative_path.encode('utf8'))
                 time.sleep(0.5)
                 self.s.send(int.to_bytes(os.path.getsize(PATH + relative_path), 4, 'little'))
@@ -84,7 +85,7 @@ class Client:
     # per request create requested file.
     def pull_new_file(self):
         relative_path = self.s.recv(1024).decode('utf8')
-        file_name = relative_path.split('/')[-1]
+        file_name = relative_path.split(SEP)[-1]
         relative_path = relative_path[0:relative_path.find(file_name)]
 
         if not os.path.exists(PATH + relative_path):
@@ -200,8 +201,9 @@ class Handler(FileSystemEventHandler):
     def on_any_event(self, event):
         if PAUSED:
             return
-        # if ((str(event.src_path).split('/'))[-1])[0] == '.':
-            # return
+        if ((str(event.src_path).split('/'))[-1])[0] == '.':
+            if event.event_type != 'moved':
+                return
         self.client.socket_rst()
         if event.event_type == 'created':
             print(f"{event.src_path} has been created!")
@@ -212,12 +214,20 @@ class Handler(FileSystemEventHandler):
             self.delete_file(event.src_path)
 
         elif event.event_type == 'moved':
-            print(f"someone moved {event.src_path} to {event.dest_path}")
-            # problem if come new client between close to rst.
-            self.delete_file(event.src_path)
-            self.client.socket_close()
-            self.client.socket_rst()
-            self.send_created_file(event.dest_path)
+            if ((str(event.src_path).split('/'))[-1])[0] == '.':
+                print(f"someone modified {event.dest_path}")
+                # problem if come new client between close to rst.
+                self.delete_file(event.dest_path)
+                self.client.socket_close()
+                self.client.socket_rst()
+                self.send_created_file(event.dest_path)
+            else:
+                print(f"someone moved {event.src_path} to {event.dest_path}")
+                # problem if come new client between close to rst.
+                self.delete_file(event.src_path)
+                self.client.socket_close()
+                self.client.socket_rst()
+                self.send_created_file(event.dest_path)
 
         self.client.start = time.time()
         self.client.socket_close()
