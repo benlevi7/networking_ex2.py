@@ -41,7 +41,7 @@ def generate_id():
     os.mkdir(PATH + SEP + generated_id)
     return generated_id
 
-
+"""
 # per request create requested file.
 def pull_new_file(client_path):
 
@@ -102,8 +102,10 @@ def push_data_existing_client(existing_client_id):
     for empty_dir in list_of_empty_dirs:
         client_socket.send(str(empty_dir).encode('utf8'))
         time.sleep(1)
+        
+"""
 
-
+"""
 # if client is a new client - create client's folder and pull all client's data to folder.
 def pull_data_new_client(client_id):
     client_path = get_client_path(client_id)
@@ -116,6 +118,7 @@ def pull_data_new_client(client_id):
     num_empty_dirs = int.from_bytes(client_socket.recv(1024), 'little')
     for i in range(num_empty_dirs):
         os.makedirs(client_path + client_socket.recv(1024).decode('utf-8'))
+"""
 
 
 # per request delete requested file.
@@ -155,20 +158,20 @@ dict = {}
 while True:
     # Accept new client.
     client_socket, client_address = server.accept()
-    with client_socket, client_socket.makefile('rb') as clientfile:
+    with client_socket, client_socket.makefile('rb') as client_file:
         # Receive client ID.
-        client_id = clientfile.readline().strip().decode()
+        client_id = client_file.readline().strip().decode()
         print(client_id)
         # verify received id - if exists push all folders to client, otherwise create new client and pull data.
         if verify_existing_client(client_id):
-            comment = clientfile.readline().strip().decode()
+            comment = client_file.readline().strip().decode()
             if comment == 'SYN_DATA':
-                push_data_existing_client(client_id)
+                utils.push_data(client_socket, get_client_path(client_id))
             else:
                 check_update(client_id, comment)
         else:
             client_id = generate_id()
             utils.send_string(client_socket, client_id)
-            pull_data_new_client(client_id)
+            utils.pull_data(client_file, get_client_path(client_id))
             dict[client_id] = str(time.time())
-        clientfile.close()
+        client_file.close()
