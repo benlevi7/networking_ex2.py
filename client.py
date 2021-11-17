@@ -37,8 +37,8 @@ class Client:
             utils.send_string(self.s, self.id)
             self.id = self.client_file.readline().strip().decode()
             utils.push_data(self.s, PATH)
-            self.start = time.time()
             self.s.close()
+        self.start = time.time()
 
     def socket_close(self):
         self.s.close()
@@ -55,11 +55,11 @@ class Client:
     def get_updates(self):
         utils.send_string(self.s, self.id)
         time.sleep(1)
-        utils.send_string(self.client_file, 'UPDATE_TIME')
+        utils.send_string(self.s, 'UPDATE_TIME')
         time.sleep(1)
         update_time = (self.client_file.readline().decode().strip())
         if update_time > str(self.start):
-            utils.send_string(self.client_file, 'PULL_ALL')
+            utils.send_string(self.s, 'PULL_ALL')
             time.sleep(1)
             for root, dirs, files in os.walk(PATH, topdown=False):
                 for name in files:
@@ -68,7 +68,7 @@ class Client:
                     os.rmdir(os.path.join(root, name))
             utils.pull_data(self.client_file, PATH)
         else:
-            utils.send_string(self.client_file, 'CONTINUE')
+            utils.send_string(self.s, 'CONTINUE')
         self.start = time.time()
 """
     def push_data(self):
@@ -173,27 +173,23 @@ class Handler(FileSystemEventHandler):
             utils.send_string(self.client.s, relative_path)
             time.sleep(1)
         else:
-            file = open(str(src_path), "rb")
             utils.send_string(self.client.s, 'NEW_FILE')
             time.sleep(1)
             utils.send_string(self.client.s, relative_path)
             time.sleep(1)
             utils.send_int(self.client.s, os.path.getsize(src_path))
             time.sleep(1)
-            file_data = file.read(1024)
-            while file_data:
-                self.client.s.send(file_data)
-                file_data = file.read(1024)
-            file.close()
+            with open(str(src_path), 'rb') as f:
+                self.client.s.sendall(f.read())
 
 
     def delete_file(self, src_path):
-        self.client.s.send(self.client.get_id().encode('utf8'))
+        utils.send_string(self.client.s, self.client.id)
         time.sleep(1)
         relative_path = str(src_path)[len(PATH):]
-        self.client.s.send(b'DELETE')
+        utils.send_string(self.client.s, 'DELETE_FILE')
         time.sleep(1)
-        self.client.s.send(relative_path.encode('utf8'))
+        utils.send_string(self.client.s, relative_path)
         time.sleep(1)
 
 

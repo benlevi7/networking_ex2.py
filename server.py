@@ -123,12 +123,15 @@ def pull_data_new_client(client_id):
 
 # per request delete requested file.
 def pull_delete_file(client_path):
-    relative_path = client_socket.recv(1024).decode('utf8')
-    if os.path.exists(client_path + relative_path):
-        if os.path.isdir(client_path + relative_path):
-            os.removedirs(client_path + relative_path)
+    relative_path = client_file.readline().strip().decode()
+    print(relative_path)
+    full_path = utils.join_path_relativepath(relative_path, client_path)
+    print('full path' + full_path)
+    if os.path.exists(full_path):
+        if os.path.isdir(full_path):
+            os.removedirs(full_path)
         else:
-            os.remove(client_path + relative_path)
+            os.remove(full_path)
 
 
 def check_update(client_id, comment):
@@ -141,10 +144,10 @@ def check_update(client_id, comment):
             utils.push_data(client_socket, client_path)
     # if NEW_FILE comment received - move to creating requested file.
     elif comment == 'NEW_FILE':
-        utils.pull_new_file(client_path, client_path)
+        utils.pull_new_file(client_file, client_path)
         dict[client_id] = str(time.time())
     elif comment == 'NEW_DIR':
-        os.makedirs(client_path + client_file.readline().strip().decode(), exist_ok=True)
+        os.makedirs(utils.join_path_relativepath(client_file.readline().strip().decode(), client_path), exist_ok=True)
         dict[client_id] = str(time.time())
     # if DELETE_FILE comment received - move to deleting requested file.
     elif comment == 'DELETE':
@@ -171,7 +174,8 @@ while True:
                 check_update(client_id, comment)
         else:
             client_id = generate_id()
+            dict[client_id] = str(time.time())
             utils.send_string(client_socket, client_id)
             utils.pull_data(client_file, get_client_path(client_id))
-            dict[client_id] = str(time.time())
+
         client_file.close()
