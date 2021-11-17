@@ -5,6 +5,7 @@ import socket
 import sys
 import os
 import time
+import utils
 from watchdog.observers import Observer
 from watchdog.events import FileSystemEventHandler
 
@@ -17,39 +18,40 @@ SEP = os.path.sep
 
 
 class Client:
-    def __init__(self):
-        self.s = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
-        self.s.connect((IP, PORT))
-        self.id = '0'
-        self.start = time.time()
+    class Client:
+        def __init__(self):
+            self.s = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
+            self.s.connect((IP, PORT))
+            self.client_file = self.s.makefile('rb')
+            self.id = '0'
+            self.start = time.time()
 
-    def initialize_connection(self):
-        try:
-            self.id = str(sys.argv[5])
-            self.s.send(self.id.encode('utf8'))
-            time.sleep(1)
-            self.s.send(b'SYN_DATA')
-            time.sleep(1)
-            self.pull_data()
+        def initialize_connection(self):
+            try:
+                self.id = str(sys.argv[5])
+                send_int(self.s, self.id)
+                send_string(self.s, 'SYN_DATA')
+                self.pull_data()
 
-        except:
-            self.s.send(self.id.encode('utf8'))
-            time.sleep(1)
-            self.id = self.s.recv(1024).decode('utf8')
-            self.push_data()
+            except:
+                send_string(self.s, self.id)
+                self.id = self.client_file.readline().strip().decode()
+                self.push_data()
 
-        self.start = time.time()
-        self.s.close()
+            self.start = time.time()
+            self.s.close()
 
-    def socket_close(self):
-        self.s.close()
+        def socket_close(self):
+            self.s.close()
+            self.client_file.close()
 
-    def get_id(self):
-        return self.id
+        def get_id(self):
+            return self.id
 
-    def socket_rst(self):
-        self.s = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
-        self.s.connect((IP, PORT))
+        def socket_rst(self):
+            self.s = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
+            self.s.connect((IP, PORT))
+            self.client_file = self.s.makefile('rb')
 
     def push_data(self):
         list_of_empty_dirs = list()
