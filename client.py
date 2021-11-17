@@ -201,7 +201,7 @@ class Handler(FileSystemEventHandler):
     def on_any_event(self, event):
         if PAUSED:
             return
-        if ((str(event.src_path).split('/'))[-1])[0] == '.':
+        if ((str(event.src_path).split(SEP))[-1])[0] == '.':
             if event.event_type != 'moved':
                 return
         self.client.socket_rst()
@@ -214,7 +214,7 @@ class Handler(FileSystemEventHandler):
             self.delete_file(event.src_path)
 
         elif event.event_type == 'moved':
-            if ((str(event.src_path).split('/'))[-1])[0] == '.':
+            if ((str(event.src_path).split(SEP))[-1])[0] == '.':
                 print(f"someone modified {event.dest_path}")
                 # problem if come new client between close to rst.
                 self.delete_file(event.dest_path)
