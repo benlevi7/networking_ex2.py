@@ -133,23 +133,23 @@ def pull_delete_file(client_path):
 
 def check_update(client_id, comment):
     client_path = get_client_path(client_id)
-    if comment == b'UPDATE_TIME':
+    if comment == 'UPDATE_TIME':
         utils.send_string(client_socket, dict[client_id])
         time.sleep(1)
-        comment = client_socket.recv(1024)
-        if comment == b'PULL_ALL':
+        comment = client_file.readline().strip().decode()
+        if comment == 'PULL_ALL':
             utils.push_data(client_socket, client_path)
     # if NEW_FILE comment received - move to creating requested file.
-    elif comment == b'NEW_FILE':
-        pull_new_file(client_path)
-        dict[client_id] = str(time.time()).encode('utf8')
-    elif comment == b'NEW_DIR':
-        os.makedirs(client_path + client_socket.recv(1024).decode('utf-8'))
-        dict[client_id] = str(time.time()).encode('utf8')
+    elif comment == 'NEW_FILE':
+        utils.pull_new_file(client_path, client_path)
+        dict[client_id] = str(time.time())
+    elif comment == 'NEW_DIR':
+        os.makedirs(client_path + client_file.readline().strip().decode(), exist_ok=True)
+        dict[client_id] = str(time.time())
     # if DELETE_FILE comment received - move to deleting requested file.
-    elif comment == b'DELETE':
+    elif comment == 'DELETE':
         pull_delete_file(client_path)
-        dict[client_id] = str(time.time()).encode('utf8')
+        dict[client_id] = str(time.time())
 
 
 create_main_directory()
