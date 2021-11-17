@@ -134,11 +134,11 @@ def pull_delete_file(client_path):
 def check_update(client_id, comment):
     client_path = get_client_path(client_id)
     if comment == b'UPDATE_TIME':
-        client_socket.send(dict[client_id])
+        utils.send_string(client_socket, dict[client_id])
         time.sleep(1)
         comment = client_socket.recv(1024)
         if comment == b'PULL_ALL':
-            push_data_existing_client(client_id)
+            utils.push_data(client_socket, client_path)
     # if NEW_FILE comment received - move to creating requested file.
     elif comment == b'NEW_FILE':
         pull_new_file(client_path)
