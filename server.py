@@ -6,6 +6,7 @@ import string
 import sys
 import os
 import time
+import utils
 
 SEP = os.path.sep
 server = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
@@ -154,18 +155,20 @@ dict = {}
 while True:
     # Accept new client.
     client_socket, client_address = server.accept()
-    # Receive client ID.
-    client_id = client_socket.recv(1024).decode('utf-8')
-    # verify received id - if exists push all folders to client, otherwise create new client and pull data.
-    if verify_existing_client(client_id):
-        data = client_socket.recv(1024)
-        if data == b'SYN_DATA':
-            push_data_existing_client(client_id)
+    with client_socket, client_socket.makefile('rb') as clientfile:
+        # Receive client ID.
+        client_id = clientfile.readline().strip().decode()
+        print(client_id)
+        # verify received id - if exists push all folders to client, otherwise create new client and pull data.
+        if verify_existing_client(client_id):
+            comment = clientfile.readline().strip().decode()
+            if comment == 'SYN_DATA':
+                push_data_existing_client(client_id)
+            else:
+                check_update(client_id, comment)
         else:
-            check_update(client_id, data)
-    else:
-        client_id = generate_id()
-        client_socket.send(client_id.encode('utf-8'))
-        pull_data_new_client(client_id)
-        dict[client_id] = str(time.time()).encode('utf-8')
-    client_socket.close()
+            client_id = generate_id()
+            utils.send_string(client_socket, client_id)
+            pull_data_new_client(client_id)
+            dict[client_id] = str(time.time())
+        clientfile.close()

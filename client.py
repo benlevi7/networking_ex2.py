@@ -8,6 +8,7 @@ import time
 import utils
 from watchdog.observers import Observer
 from watchdog.events import FileSystemEventHandler
+import utils
 
 IP = sys.argv[1]
 PORT = int(sys.argv[2])
@@ -18,26 +19,24 @@ SEP = os.path.sep
 
 
 class Client:
-    class Client:
-        def __init__(self):
-            self.s = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
-            self.s.connect((IP, PORT))
-            self.client_file = self.s.makefile('rb')
-            self.id = '0'
-            self.start = time.time()
+    def __init__(self):
+        self.s = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
+        self.s.connect((IP, PORT))
+        self.client_file = self.s.makefile('rb')
+        self.id = '0'
+        self.start = time.time()
 
-        def initialize_connection(self):
-            try:
-                self.id = str(sys.argv[5])
-                send_int(self.s, self.id)
-                send_string(self.s, 'SYN_DATA')
-                self.pull_data()
+    def initialize_connection(self):
+        try:
+            self.id = str(sys.argv[5])
+            utils.send_int(self.s, self.id)
+            utils.send_string(self.s, 'SYN_DATA')
+            self.pull_data()
 
-            except:
-                send_string(self.s, self.id)
-                self.id = self.client_file.readline().strip().decode()
-                self.push_data()
-
+        except:
+            utils.send_string(self.s, self.id)
+            self.id = self.client_file.readline().strip().decode()
+            self.push_data()
             self.start = time.time()
             self.s.close()
 
