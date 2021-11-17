@@ -31,27 +31,46 @@ class Client:
             self.id = str(sys.argv[5])
             utils.send_int(self.s, self.id)
             utils.send_string(self.s, 'SYN_DATA')
-            self.pull_data()
+            utils.pull_data(self.client_file, PATH)
 
         except:
             utils.send_string(self.s, self.id)
             self.id = self.client_file.readline().strip().decode()
-            self.push_data()
+            utils.push_data(self.s, PATH)
             self.start = time.time()
             self.s.close()
 
-        def socket_close(self):
-            self.s.close()
-            self.client_file.close()
+    def socket_close(self):
+        self.s.close()
+        self.client_file.close()
 
-        def get_id(self):
-            return self.id
+    def get_id(self):
+        return self.id
 
-        def socket_rst(self):
-            self.s = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
-            self.s.connect((IP, PORT))
-            self.client_file = self.s.makefile('rb')
+    def socket_rst(self):
+        self.s = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
+        self.s.connect((IP, PORT))
+        self.client_file = self.s.makefile('rb')
 
+    def get_updates(self):
+        utils.send_string(self.s, self.id)
+        time.sleep(1)
+        utils.send_string(self.client_file, 'UPDATE_TIME')
+        time.sleep(1)
+        update_time = (self.client_file.readline().decode().strip())
+        if update_time > str(self.start):
+            utils.send_string(self.client_file, 'PULL_ALL')
+            time.sleep(1)
+            for root, dirs, files in os.walk(PATH, topdown=False):
+                for name in files:
+                    os.remove(os.path.join(root, name))
+                for name in dirs:
+                    os.rmdir(os.path.join(root, name))
+            utils.pull_data(self.client_file, PATH)
+        else:
+            utils.send_string(self.client_file, 'CONTINUE')
+        self.start = time.time()
+"""
     def push_data(self):
         list_of_empty_dirs = list()
         for (dirpath, dirnames, filenames) in os.walk(PATH):
@@ -113,27 +132,7 @@ class Client:
         num_empty_dirs = int.from_bytes(self.s.recv(1024), 'little')
         for i in range(num_empty_dirs):
             os.makedirs(PATH + self.s.recv(1024).decode('utf8'))
-
-    def get_updates(self):
-        self.s.send(self.id.encode('utf8'))
-        time.sleep(1)
-        self.s.send(b'UPDATE_TIME')
-        time.sleep(1)
-        update_time = self.s.recv(1024).decode('utf8')
-        if update_time > str(self.start):
-            self.s.send(b'PULL_ALL')
-            time.sleep(1)
-            for root, dirs, files in os.walk(PATH, topdown=False):
-                for name in files:
-                    os.remove(os.path.join(root, name))
-                for name in dirs:
-                    os.rmdir(os.path.join(root, name))
-            self.pull_data()
-        else:
-            self.s.send(b'CONTINUE')
-        self.start = time.time()
-
-
+"""
 
 class Watcher:
     def __init__(self, client):
@@ -159,28 +158,27 @@ class Watcher:
         self.my_observer.join()
 
 
-
 class Handler(FileSystemEventHandler):
     def __init__(self, client):
         self.client = client
 
 
     def send_created_file(self, src_path):
-        self.client.s.send(self.client.get_id().encode('utf8'))
+        utils.send_string(self.client.s, self.client.id)
         time.sleep(1)
         relative_path = str(src_path)[len(PATH):]
         if os.path.isdir(src_path):
-            self.client.s.send(b'NEW_DIR')
+            utils.send_string(self.client.s, 'NEW_DIR')
             time.sleep(1)
-            self.client.s.send(relative_path.encode('utf8'))
+            utils.send_string(self.client.s, relative_path)
             time.sleep(1)
         else:
             file = open(str(src_path), "rb")
-            self.client.s.send(b'NEW_FILE')
+            utils.send_string(self.client.s, 'NEW_FILE')
             time.sleep(1)
-            self.client.s.send(relative_path.encode('utf8'))
+            utils.send_string(self.client.s, relative_path)
             time.sleep(1)
-            self.client.s.send(int.to_bytes(os.path.getsize(src_path), 4, 'little'))
+            utils.send_int(self.client.s, os.path.getsize(src_path))
             time.sleep(1)
             file_data = file.read(1024)
             while file_data:
