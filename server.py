@@ -31,14 +31,14 @@ def verify_existing_client(client_id):
 
 # return client's path by providing an id.
 def get_client_path(client_id):
-    return PATH + SEP + client_id
+    return utils.join_path_relativepath(client_id, PATH)
 
 
 # generate new ID using characters and numbers.
 def generate_id():
     characters = string.ascii_uppercase + string.ascii_lowercase + string.digits
     generated_id = ''.join(random.choice(characters) for i in range(128))
-    os.mkdir(PATH + SEP + generated_id)
+    os.mkdir(utils.join_path_relativepath(generated_id, PATH))
     return generated_id
 
 """

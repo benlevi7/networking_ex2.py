@@ -14,7 +14,7 @@ IP = sys.argv[1]
 PORT = int(sys.argv[2])
 PATH = str(sys.argv[3])
 TIME = float(sys.argv[4])
-PAUSED = False
+IN_PROGRESS = False
 SEP = os.path.sep
 
 
@@ -41,13 +41,19 @@ class Client:
         self.start = time.time()
 
     def socket_close(self):
+        global IN_PROGRESS
         self.s.close()
         self.client_file.close()
+        IN_PROGRESS = False
 
     def get_id(self):
         return self.id
 
     def socket_rst(self):
+        global IN_PROGRESS
+        if IN_PROGRESS:
+            print("tried to enter while other socket is on")
+        IN_PROGRESS = True
         self.s = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
         self.s.connect((IP, PORT))
         self.client_file = self.s.makefile('rb')
@@ -70,69 +76,7 @@ class Client:
         else:
             utils.send_string(self.s, 'CONTINUE')
         self.start = time.time()
-"""
-    def push_data(self):
-        list_of_empty_dirs = list()
-        for (dirpath, dirnames, filenames) in os.walk(PATH):
-            if len(dirnames) == 0 and len(filenames) == 0:
-                list_of_empty_dirs.append(dirpath[len(PATH):])
 
-        num_files = sum(len(files) for _, _, files in os.walk(PATH))
-
-        self.s.send(int.to_bytes(num_files, 4, 'little'))
-        time.sleep(1)
-        for root, dirs, files in os.walk(PATH):
-            for name in files:
-                relative_path = root[len(PATH):] + SEP + name
-                self.s.send(relative_path.encode('utf8'))
-                time.sleep(0.5)
-                self.s.send(int.to_bytes(os.path.getsize(PATH + relative_path), 4, 'little'))
-                time.sleep(0.5)
-                file = open(PATH + relative_path, "rb")
-                file_data = file.read(1024)
-                while file_data:
-                    self.s.send(file_data)
-                    file_data = file.read(1024)
-                file.close()
-
-        time.sleep(1)
-        self.s.send(int.to_bytes(len(list_of_empty_dirs), 4, 'little'))
-        time.sleep(1)
-        for empty_dir in list_of_empty_dirs:
-            self.s.send(empty_dir.encode('utf8'))
-            time.sleep(1)
-
-    # per request create requested file.
-    def pull_new_file(self):
-        relative_path = self.s.recv(1024).decode('utf8')
-        file_name = relative_path.split(SEP)[-1]
-        relative_path = relative_path[0:relative_path.find(file_name)]
-
-        if not os.path.exists(PATH + relative_path):
-            os.makedirs(PATH + relative_path)
-
-        file = open(PATH + relative_path + file_name, "wb")
-        file_size = int.from_bytes(self.s.recv(1024), 'little')
-        temp_size = 0
-
-        while temp_size < file_size:
-            byte_stream = self.s.recv(1024)
-            temp_size += len(byte_stream)
-            file.write(byte_stream)
-        file.close()
-
-    def pull_data(self):
-        # get number of files expected to be received.
-        num_files = int.from_bytes(self.s.recv(1024), 'little')
-        # iterate over all files and write them to folder.
-        for indexFile in range(num_files):
-            # receive each file.
-            self.pull_new_file()
-
-        num_empty_dirs = int.from_bytes(self.s.recv(1024), 'little')
-        for i in range(num_empty_dirs):
-            os.makedirs(PATH + self.s.recv(1024).decode('utf8'))
-"""
 
 class Watcher:
     def __init__(self, client):
@@ -145,13 +89,10 @@ class Watcher:
         self.my_observer.start()
         try:
             while True:
-                global PAUSED
-                if self.client.start + TIME < time.time():
-                    PAUSED = True
+                if self.client.start + TIME < time.time() and not IN_PROGRESS:
                     self.client.socket_rst()
                     self.client.get_updates()
                     self.client.socket_close()
-                    PAUSED = False
                 time.sleep(5)
         except KeyboardInterrupt:
             self.my_observer.stop()
@@ -161,7 +102,6 @@ class Watcher:
 class Handler(FileSystemEventHandler):
     def __init__(self, client):
         self.client = client
-
 
     def send_created_file(self, src_path):
         utils.send_string(self.client.s, self.client.id)
@@ -187,14 +127,13 @@ class Handler(FileSystemEventHandler):
         utils.send_string(self.client.s, self.client.id)
         time.sleep(1)
         relative_path = str(src_path)[len(PATH):]
-        utils.send_string(self.client.s, 'DELETE_FILE')
+        utils.send_string(self.client.s, 'DELETE')
         time.sleep(1)
         utils.send_string(self.client.s, relative_path)
         time.sleep(1)
 
-
     def on_any_event(self, event):
-        if PAUSED:
+        if IN_PROGRESS:
             return
         if ((str(event.src_path).split(SEP))[-1])[0] == '.':
             if event.event_type != 'moved':
