@@ -44,6 +44,7 @@ class Client:
         global IN_PROGRESS
         self.s.close()
         self.client_file.close()
+        print('Closed previous socket.')
         IN_PROGRESS = False
 
     def get_id(self):
@@ -57,14 +58,17 @@ class Client:
         self.s = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
         self.s.connect((IP, PORT))
         self.client_file = self.s.makefile('rb')
+        print('Started new socket with server')
 
     def get_updates(self):
         utils.send_string(self.s, self.id)
         time.sleep(1)
         utils.send_string(self.s, 'UPDATE_TIME')
+        print('Sent UPDATE to server.')
         time.sleep(1)
         update_time = (self.client_file.readline().decode().strip())
         if update_time > str(self.start):
+            print('Time of update was greater than my time, sending PULL_ALL to server.')
             utils.send_string(self.s, 'PULL_ALL')
             time.sleep(1)
             for root, dirs, files in os.walk(PATH, topdown=False):
@@ -108,13 +112,17 @@ class Handler(FileSystemEventHandler):
         time.sleep(1)
         relative_path = str(src_path)[len(PATH):]
         if os.path.isdir(src_path):
+            print('Change occured in a dir!, sending NEW_DIR to sever.')
             utils.send_string(self.client.s, 'NEW_DIR')
             time.sleep(1)
+            print('NEW_DIRs path is      ' + relative_path)
             utils.send_string(self.client.s, relative_path)
             time.sleep(1)
         else:
+            print('Changed occured in a FILE, sending NEW_FILE to server.')
             utils.send_string(self.client.s, 'NEW_FILE')
             time.sleep(1)
+            print('NEW_FILE is at path:    ' + relative_path)
             utils.send_string(self.client.s, relative_path)
             time.sleep(1)
             utils.send_int(self.client.s, os.path.getsize(src_path))
@@ -127,6 +135,7 @@ class Handler(FileSystemEventHandler):
         utils.send_string(self.client.s, self.client.id)
         time.sleep(1)
         relative_path = str(src_path)[len(PATH):]
+        print('DELETE occured, sending to server with path:     ' + relative_path)
         utils.send_string(self.client.s, 'DELETE')
         time.sleep(1)
         utils.send_string(self.client.s, relative_path)
