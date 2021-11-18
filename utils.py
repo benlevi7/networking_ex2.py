@@ -73,7 +73,8 @@ def replace_seperators(path):
 def join_path_relativepath(relative_path, folder_path):
     if not str(relative_path).startswith('/') and not str(relative_path).startswith('\''):
         relative_path = ''.join(SEP + replace_seperators(relative_path))
-    folder_path = str(folder_path).removesuffix(SEP)
+    if str(folder_path).endswith(SEP):
+        folder_path = folder_path[:-1]
     return folder_path + relative_path
 
 
