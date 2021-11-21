@@ -67,7 +67,7 @@ def push_data(socket, path):
 def replace_seperators(path):
     if SEP == '/':
         return str(path).replace('\'', SEP)
-    return str(path).replace('/', SEP)
+    return str(path).sreplace('/', SEP)
 
 
 def join_path_relativepath(relative_path, folder_path):
@@ -77,3 +77,22 @@ def join_path_relativepath(relative_path, folder_path):
     return folder_path + relative_path
 
 
+# per request delete requested file.
+def pull_delete_file(client_file, path):
+    relative_path = client_file.readline().strip().decode()
+    print(relative_path)
+    full_path = join_path_relativepath(relative_path, path)
+    print('full path' + full_path)
+    if os.path.exists(full_path):
+        if os.path.isdir(full_path):
+            delete_not_empty_dir(full_path)
+        else:
+            os.remove(full_path)
+
+def delete_not_empty_dir(path):
+    for root, dirs, files in os.walk(path, topdown=False):
+        for name in files:
+            os.remove(os.path.join(root, name))
+        for name in dirs:
+            os.rmdir(os.path.join(root, name))
+    os.rmdir(path)

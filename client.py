@@ -134,7 +134,7 @@ class Handler(FileSystemEventHandler):
 
     def on_any_event(self, event):
         if IN_PROGRESS:
-            return
+            return 
         if ((str(event.src_path).split(SEP))[-1])[0] == '.':
             if event.event_type != 'moved':
                 return
