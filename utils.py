@@ -1,4 +1,6 @@
 import os
+import time
+
 SEP = os.path.sep
 
 def send_string(sock,string):
@@ -25,12 +27,12 @@ def pull_data(client_file, path):
 
 # per request create requested file.
 def pull_new_file(client_file, path):
-    relative_path = client_file.readline().strip().decode()
+    relative_path = replace_seperators(client_file.readline().strip().decode())
     print('relative path sent from client' + relative_path)
-    file_name = relative_path.split('/')[-1]
-    relative_path = relative_path[0:relative_path.find(file_name)]
+    file_name = relative_path.split(SEP)[-1]
+    relative_path_no_name = relative_path[0:relative_path.find(file_name)]
 
-    folder_path = join_path_relativepath(relative_path, path)
+    folder_path = join_path_relativepath(relative_path_no_name, path)
     if not os.path.exists(folder_path):
         os.makedirs(folder_path, exist_ok=True)
 
@@ -39,6 +41,7 @@ def pull_new_file(client_file, path):
     byte_stream = client_file.read(file_size)
     with open((join_path_relativepath(file_name, folder_path)), 'wb') as f:
         f.write(byte_stream)
+    return relative_path
 
 
 def push_data(socket, path):
@@ -67,7 +70,7 @@ def push_data(socket, path):
 def replace_seperators(path):
     if SEP == '/':
         return str(path).replace('\'', SEP)
-    return str(path).sreplace('/', SEP)
+    return str(path).replace('/', SEP)
 
 
 def join_path_relativepath(relative_path, folder_path):
@@ -75,6 +78,14 @@ def join_path_relativepath(relative_path, folder_path):
         relative_path = ''.join(SEP + replace_seperators(relative_path))
     folder_path = str(folder_path).removesuffix(SEP)
     return folder_path + relative_path
+
+
+def send_created_file(client_socket, src_path, path):
+    relative_path = str(src_path)[len(path):]
+    send_string(client_socket, relative_path)
+    send_int(client_socket, os.path.getsize(src_path))
+    with open(str(src_path), 'rb') as f:
+        client_socket.sendall(f.read())
 
 
 # per request delete requested file.
@@ -88,6 +99,7 @@ def pull_delete_file(client_file, path):
             delete_not_empty_dir(full_path)
         else:
             os.remove(full_path)
+    return relative_path
 
 def delete_not_empty_dir(path):
     for root, dirs, files in os.walk(path, topdown=False):
