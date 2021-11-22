@@ -1,5 +1,6 @@
 # Itay Etelis 209041474
 # Ben Levi 318811304
+
 import random
 import socket
 import string
@@ -49,7 +50,8 @@ def send_updates(client_id, client_index):
     for t in list_updates:
         utils.send_string(client_socket, t[0])
         if t[0] == 'NEW_FILE':
-            utils.send_created_file(client_socket, utils.join_path_relativepath(t[1], get_client_path(client_id)), get_client_path(client_id))
+            utils.send_created_file(client_socket, utils.join_path_relativepath(t[1], get_client_path(client_id)),
+                                    get_client_path(client_id))
         else:
             utils.send_string(client_socket, t[1])
 
@@ -85,6 +87,7 @@ def check_update(client_id, recv_client_index):
     elif comment == 'DELETE':
         src = utils.pull_delete_file(client_file, client_path)
         add_update(client_id, recv_client_index, comment, src)
+
 
 create_main_directory()
 dict = {}

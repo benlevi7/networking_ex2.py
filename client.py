@@ -6,8 +6,6 @@ import sys
 import os
 import time
 
-import client
-import utils
 from watchdog.observers import Observer
 from watchdog.events import FileSystemEventHandler
 import utils
@@ -69,7 +67,7 @@ class Client:
         utils.send_string(self.s, 'UPDATE_TIME')
         print('sent UPDATE_TIME')
         num_updates = int((self.client_file.readline().decode().strip()))
-        print ('number of updates received:    ' + str(num_updates))
+        print('number of updates received:    ' + str(num_updates))
         for update in range(num_updates):
             comment = self.client_file.readline().decode().strip()
             print('Comment received =   ' + comment)

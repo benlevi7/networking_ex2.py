@@ -1,3 +1,6 @@
+# Itay Etelis 209041474
+# Ben Levi 318811304
+
 import os
 import time
 
@@ -73,10 +76,13 @@ def replace_seperators(path):
     return str(path).replace('/', SEP)
 
 
+
 def join_path_relativepath(relative_path, folder_path):
     if not str(relative_path).startswith('/') and not str(relative_path).startswith('\''):
         relative_path = ''.join(SEP + replace_seperators(relative_path))
-    folder_path = str(folder_path).removesuffix(SEP)
+    # folder_path = str(folder_path).removesuffix(SEP)
+    if str(folder_path).endswith(SEP):
+        folder_path = folder_path[:-1]
     return folder_path + relative_path
 
 
@@ -100,6 +106,7 @@ def pull_delete_file(client_file, path):
         else:
             os.remove(full_path)
     return relative_path
+
 
 def delete_not_empty_dir(path):
     for root, dirs, files in os.walk(path, topdown=False):
