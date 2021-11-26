@@ -85,7 +85,7 @@ def check_update(client_id, recv_client_index):
         if not os.path.exists(utils.join_path_relativepath(src, client_path)):
             os.makedirs(utils.join_path_relativepath(src, client_path), exist_ok=True)
             add_update(client_id, recv_client_index, comment, src)
-    # if DELETE_FILE comment received - move to deleting requested file.
+    # if DELETE_FILE comment received - move to deleting requested file
     elif comment == 'DELETE':
         src = utils.pull_delete_file(client_file, client_path)
         if src != 'NOT_EXIST':
