@@ -5,7 +5,7 @@ import socket
 import sys
 import os
 import time
-import utils
+
 from watchdog.observers import Observer
 from watchdog.events import FileSystemEventHandler
 import utils
@@ -14,7 +14,6 @@ IP = sys.argv[1]
 PORT = int(sys.argv[2])
 PATH = str(sys.argv[3])
 TIME = float(sys.argv[4])
-IN_PROGRESS = False
 SEP = os.path.sep
 
 
@@ -24,6 +23,7 @@ class Client:
         self.s.connect((IP, PORT))
         self.client_file = self.s.makefile('rb')
         self.id = '0'
+        self.index = '0'
         self.start = time.time()
 
     def initialize_connection(self):
@@ -31,54 +31,48 @@ class Client:
             self.id = str(sys.argv[5])
             utils.send_int(self.s, self.id)
             utils.send_string(self.s, 'SYN_DATA')
+            self.index = self.client_file.readline().strip().decode()
             utils.pull_data(self.client_file, PATH)
 
         except:
             utils.send_string(self.s, self.id)
             self.id = self.client_file.readline().strip().decode()
+            self.index = self.client_file.readline().strip().decode()
             utils.push_data(self.s, PATH)
             self.s.close()
         self.start = time.time()
 
     def socket_close(self):
-        global IN_PROGRESS
         self.s.close()
         self.client_file.close()
-        print('Closed previous socket.')
-        IN_PROGRESS = False
 
     def get_id(self):
         return self.id
 
     def socket_rst(self):
-        global IN_PROGRESS
-        if IN_PROGRESS:
-            print("tried to enter while other socket is on")
-        IN_PROGRESS = True
         self.s = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
         self.s.connect((IP, PORT))
         self.client_file = self.s.makefile('rb')
-        print('Started new socket with server')
 
     def get_updates(self):
         utils.send_string(self.s, self.id)
-        time.sleep(1)
+        utils.send_string(self.s, self.index)
         utils.send_string(self.s, 'UPDATE_TIME')
-        print('Sent UPDATE to server.')
-        time.sleep(1)
-        update_time = (self.client_file.readline().decode().strip())
-        if update_time > str(self.start):
-            print('Time of update was greater than my time, sending PULL_ALL to server.')
-            utils.send_string(self.s, 'PULL_ALL')
-            time.sleep(1)
-            for root, dirs, files in os.walk(PATH, topdown=False):
-                for name in files:
-                    os.remove(os.path.join(root, name))
-                for name in dirs:
-                    os.rmdir(os.path.join(root, name))
-            utils.pull_data(self.client_file, PATH)
-        else:
-            utils.send_string(self.s, 'CONTINUE')
+        print('sent UPDATE_TIME')
+        num_updates = int((self.client_file.readline().decode().strip()))
+        print('number of updates received:    ' + str(num_updates))
+        for update in range(num_updates):
+            comment = self.client_file.readline().decode().strip()
+            print('Comment received =   ' + comment)
+            if comment == 'NEW_FILE':
+                utils.pull_new_file(self.client_file, PATH)
+
+            elif comment == 'NEW_DIR':
+                relative_path = self.client_file.readline().strip().decode()
+                os.makedirs(utils.join_path_relativepath(relative_path, PATH), exist_ok=True)
+
+            elif comment == 'DELETE':
+                utils.pull_delete_file(self.client_file, PATH)
         self.start = time.time()
 
 
@@ -93,10 +87,12 @@ class Watcher:
         self.my_observer.start()
         try:
             while True:
-                if self.client.start + TIME < time.time() and not IN_PROGRESS:
+                if self.client.start + TIME < time.time():
+                    print('START UPDATE')
                     self.client.socket_rst()
                     self.client.get_updates()
                     self.client.socket_close()
+                    print('END UPDATE')
                 time.sleep(5)
         except KeyboardInterrupt:
             self.my_observer.stop()
@@ -109,41 +105,24 @@ class Handler(FileSystemEventHandler):
 
     def send_created_file(self, src_path):
         utils.send_string(self.client.s, self.client.id)
-        time.sleep(1)
+        utils.send_string(self.client.s, self.client.index)
         relative_path = str(src_path)[len(PATH):]
         if os.path.isdir(src_path):
-            print('Change occured in a dir!, sending NEW_DIR to sever.')
             utils.send_string(self.client.s, 'NEW_DIR')
-            time.sleep(1)
-            print('NEW_DIRs path is      ' + relative_path)
             utils.send_string(self.client.s, relative_path)
-            time.sleep(1)
         else:
-            print('Changed occured in a FILE, sending NEW_FILE to server.')
             utils.send_string(self.client.s, 'NEW_FILE')
-            time.sleep(1)
-            print('NEW_FILE is at path:    ' + relative_path)
-            utils.send_string(self.client.s, relative_path)
-            time.sleep(1)
-            utils.send_int(self.client.s, os.path.getsize(src_path))
-            time.sleep(1)
-            with open(str(src_path), 'rb') as f:
-                self.client.s.sendall(f.read())
+            utils.send_created_file(self.client.s, self.client.client_file, src_path, PATH)
 
 
     def delete_file(self, src_path):
         utils.send_string(self.client.s, self.client.id)
-        time.sleep(1)
+        utils.send_string(self.client.s, self.client.index)
         relative_path = str(src_path)[len(PATH):]
-        print('DELETE occured, sending to server with path:     ' + relative_path)
         utils.send_string(self.client.s, 'DELETE')
-        time.sleep(1)
         utils.send_string(self.client.s, relative_path)
-        time.sleep(1)
 
     def on_any_event(self, event):
-        if IN_PROGRESS:
-            return
         if ((str(event.src_path).split(SEP))[-1])[0] == '.':
             if event.event_type != 'moved':
                 return
@@ -172,7 +151,6 @@ class Handler(FileSystemEventHandler):
                 self.client.socket_rst()
                 self.send_created_file(event.dest_path)
 
-        self.client.start = time.time()
         self.client.socket_close()
 
 
