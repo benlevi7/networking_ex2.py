@@ -50,7 +50,9 @@ def send_updates(client_id, client_index):
     for t in list_updates:
         utils.send_string(client_socket, t[0])
         if t[0] == 'NEW_FILE':
-            utils.send_created_file(client_socket, utils.join_path_relativepath(t[1], get_client_path(client_id)),
+            utils.push_created_file(client_socket, client_file,
+                                    utils.join_path_relativepath(t[1],
+                                                                 get_client_path(client_id)),
                                     get_client_path(client_id))
         else:
             utils.send_string(client_socket, t[1])
@@ -71,25 +73,36 @@ def add_update(client_id, client_index, comment, src):
 
 def check_update(client_id, recv_client_index):
     client_path = get_client_path(client_id)
-    comment = client_file.readline().strip().decode()
-    if comment == 'UPDATE_TIME':
+    get_comment = client_file.readline().strip().decode()
+    print(get_comment)
+    go_to_update(client_id, recv_client_index, client_path, get_comment)
+
+
+def go_to_update(client_id, recv_client_index, client_path, update):
+    if update == 'UPDATE_TIME':
         send_updates(client_id, recv_client_index)
         return
     # if NEW_FILE comment received - move to creating requested file.
-    elif comment == 'NEW_FILE':
+    elif update == 'NEW_FILE':
         src = utils.pull_new_file(client_socket, client_file, client_path)
-        if src != 'EXIST':
-            add_update(client_id, recv_client_index, comment, src)
-    elif comment == 'NEW_DIR':
+        if not src == 'EXIST':
+            add_update(client_id, recv_client_index, update, src)
+    elif update == 'NEW_DIR':
         src = client_file.readline().strip().decode()
         if not os.path.exists(utils.join_path_relativepath(src, client_path)):
             os.makedirs(utils.join_path_relativepath(src, client_path), exist_ok=True)
-            add_update(client_id, recv_client_index, comment, src)
+            add_update(client_id, recv_client_index, update, src)
     # if DELETE_FILE comment received - move to deleting requested file
-    elif comment == 'DELETE':
+    elif update == 'DELETE':
         src = utils.pull_delete_file(client_file, client_path)
-        if src != 'NOT_EXIST':
-            add_update(client_id, recv_client_index, comment, src)
+        if not src == 'NOT_EXIST':
+            add_update(client_id, recv_client_index, update, src)
+
+    elif update == 'CHANGE':
+        update = client_file.readline().strip().decode()  # 'DELETE'
+        go_to_update(client_id, recv_client_index, client_path, update)
+        update = client_file.readline().strip().decode()  # 'NEW'
+        go_to_update(client_id, recv_client_index, client_path, update)
 
 
 create_main_directory()

@@ -32,7 +32,7 @@ class Client:
             utils.send_int(self.s, self.id)
             utils.send_string(self.s, 'SYN_DATA')
             self.index = self.client_file.readline().strip().decode()
-            utils.pull_data(self.client_file, PATH)
+            utils.pull_data(self.s, self.client_file, PATH)
 
         except:
             utils.send_string(self.s, self.id)
@@ -65,7 +65,7 @@ class Client:
             comment = self.client_file.readline().decode().strip()
             print('Comment received =   ' + comment)
             if comment == 'NEW_FILE':
-                utils.pull_new_file(self.client_file, PATH)
+                utils.pull_new_file(self.s, self.client_file, PATH)
 
             elif comment == 'NEW_DIR':
                 relative_path = self.client_file.readline().strip().decode()
@@ -112,7 +112,7 @@ class Handler(FileSystemEventHandler):
             utils.send_string(self.client.s, relative_path)
         else:
             utils.send_string(self.client.s, 'NEW_FILE')
-            utils.send_created_file(self.client.s, self.client.client_file, src_path, PATH)
+            utils.push_created_file(self.client.s, self.client.client_file, src_path, PATH)
 
 
     def delete_file(self, src_path):
@@ -121,6 +121,22 @@ class Handler(FileSystemEventHandler):
         relative_path = str(src_path)[len(PATH):]
         utils.send_string(self.client.s, 'DELETE')
         utils.send_string(self.client.s, relative_path)
+
+    def send_change(self, path1, path2):
+        utils.send_string(self.client.s, self.client.id)
+        utils.send_string(self.client.s, self.client.index)
+        utils.send_string(self.client.s, 'CHANGE')
+        relative_path = str(path1)[len(PATH):]
+        utils.send_string(self.client.s, 'DELETE')
+        utils.send_string(self.client.s, relative_path)
+
+        if os.path.isdir(path2):
+            utils.send_string(self.client.s, 'NEW_DIR')
+            utils.send_string(self.client.s, relative_path)
+        else:
+            utils.send_string(self.client.s, 'NEW_FILE')
+            utils.push_created_file(self.client.s, self.client.client_file, path2, PATH)
+
 
     def on_any_event(self, event):
         if ((str(event.src_path).split(SEP))[-1])[0] == '.':
@@ -138,18 +154,10 @@ class Handler(FileSystemEventHandler):
         elif event.event_type == 'moved':
             if ((str(event.src_path).split(SEP))[-1])[0] == '.':
                 print(f"someone modified {event.dest_path}")
-                # problem if come new client between close to rst.
-                self.delete_file(event.dest_path)
-                self.client.socket_close()
-                self.client.socket_rst()
-                self.send_created_file(event.dest_path)
+                self.send_change(event.dest_path, event.dest_path)
             else:
                 print(f"someone moved {event.src_path} to {event.dest_path}")
-                # problem if come new client between close to rst.
-                self.delete_file(event.src_path)
-                self.client.socket_close()
-                self.client.socket_rst()
-                self.send_created_file(event.dest_path)
+                self.send_change(event.src_path, event.dest_path)
 
         self.client.socket_close()
 

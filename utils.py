@@ -92,13 +92,15 @@ def join_path_relativepath(relative_path, folder_path):
     return folder_path + relative_path
 
 
-def send_created_file(client_socket, client_file, src_path, path):
+def push_created_file(client_socket, client_file, src_path, path):
     relative_path = str(src_path)[len(path):]
     send_string(client_socket, relative_path)
     answer = client_file.readline().strip().decode()
     print(answer)
     if answer == 'START':
-        send_int(client_socket, os.path.getsize(src_path))
+        size = os.path.getsize(src_path)
+        print(size)
+        send_int(client_socket, size)
         with open(str(src_path), 'rb') as f:
             client_socket.sendall(f.read())
 
