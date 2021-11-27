@@ -38,7 +38,7 @@ class Client:
             utils.send_string(self.s, self.id)
             self.id = self.client_file.readline().strip().decode()
             self.index = self.client_file.readline().strip().decode()
-            utils.push_data(self.s, PATH)
+            utils.push_data(self.s, self.client_file, PATH)
             self.s.close()
         self.start = time.time()
 

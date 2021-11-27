@@ -122,7 +122,7 @@ while True:
             if comment == 'SYN_DATA':
                 dict[(client_id, client_index)] = []
                 utils.send_string(client_socket, client_index)
-                utils.push_data(client_socket, get_client_path(client_id))
+                utils.push_data(client_socket, client_file, get_client_path(client_id))
             else:
                 check_update(client_id, comment)
         else:

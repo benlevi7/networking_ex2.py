@@ -43,17 +43,15 @@ def pull_new_file(client_socket, client_file, path):
     if not os.path.exists(folder_path):
         os.makedirs(folder_path, exist_ok=True)
 
-    size = client_file.readline()
+    size = int(client_file.readline())  ##########
     print('SIZE :  --- ', size)
-    file_size = int(size)
-    print('files size' + str(file_size))
-    byte_stream = client_file.read(file_size)
+    byte_stream = client_file.read(size)
     with open((join_path_relativepath(file_name, folder_path)), 'wb') as f:
         f.write(byte_stream)
     return relative_path
 
 
-def push_data(socket, path):
+def push_data(socket, client_file, path):
     list_of_empty_dirs = list()
     for (dirpath, dirnames, filenames) in os.walk(path):
         if len(dirnames) == 0 and len(filenames) == 0:
@@ -65,11 +63,8 @@ def push_data(socket, path):
     for root, dirs, files in os.walk(path):
         for name in files:
             print(root)
-            relative_path = join_path_relativepath(name, root[len(path):])
-            send_string(socket, relative_path)
-            send_int(socket, os.path.getsize(path + relative_path))
-            with open((path + relative_path), 'rb') as f:
-                socket.sendall(f.read())
+            relative_path = join_path_relativepath(name, root)
+            push_created_file(socket, client_file, relative_path, path)
 
     send_int(socket, len(list_of_empty_dirs))
     for empty_dir in list_of_empty_dirs:
