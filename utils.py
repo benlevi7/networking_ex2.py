@@ -89,6 +89,7 @@ def join_path_relativepath(relative_path, folder_path):
 
 def push_created_file(client_socket, client_file, src_path, path):
     relative_path = str(src_path)[len(path):]
+    print(relative_path)
     send_string(client_socket, relative_path)
     answer = client_file.readline().strip().decode()
     print(answer)
