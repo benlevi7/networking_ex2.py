@@ -72,13 +72,6 @@ def add_update(client_id, client_session_id, comment, src):
         if operation[0] == client_id and operation[1] != client_session_id:
             dict[(client_id, operation[1])].append((comment, src))
 
-# ben's update
-#def check_update(client_id, recv_client_index):
-#    client_path = get_client_path(client_id)
-#    get_comment = client_file.readline().strip().decode()
-#    print(get_comment)
-#    go_to_update(client_id, recv_client_index, client_path, get_comment)
-
 
 def check_update(client_id, client_session_id, update):
     client_path = get_client_path(client_id)

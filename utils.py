@@ -20,14 +20,14 @@ def send_int(sock, integer):
 # replace_seperators - will replace separators according to system.
 def replace_separators(path):
     if SEP == '/':
-        return str(path).replace('\'', SEP)
+        return str(path).replace('\\', SEP)
     return str(path).replace('/', SEP)
 
 
 # join_paths - will join both relative path and general path with correct separators.
 def join_paths(relative_path, folder_path):
     # if relative path does not start with a separator, insert one.
-    if not str(relative_path).startswith('/') and not str(relative_path).startswith('\''):
+    if not str(relative_path).startswith('/') and not str(relative_path).startswith('\\'):
         relative_path = ''.join(SEP + replace_separators(relative_path))
     # if folder's path ends with separator remove it.
     if str(folder_path).endswith(SEP):
@@ -57,11 +57,6 @@ def pull_data(client_socket, client_file, path):
 def pull_new_file(client_socket, client_file, path):
     # receive relative path from client and create a path with corresponding separator.
     relative_path = replace_separators(client_file.readline().strip().decode())
-
-    # if os.path.exists(join_path_relativepath(relative_path, path)):
-    #    send_string(client_socket, 'STOP')
-    #    return 'EXIST'
-    # send_string(client_socket, 'START')
 
     # separate file's name from path.
     file_name = relative_path.split(SEP)[-1]
