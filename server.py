@@ -87,7 +87,7 @@ def check_update(client_id, client_session_id, update):
 
     # if NEW_DIR comment received - move to creating new folder.
     elif update == 'NEW_DIR':
-        src = client_file.readline().strip().decode()
+        src = utils.replace_separators(client_file.readline().strip().decode())
         if not os.path.exists(utils.join_paths(src, client_path)):
             os.makedirs(utils.join_paths(src, client_path), exist_ok=True)
             add_update(client_id, client_session_id, update, src)

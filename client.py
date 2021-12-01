@@ -96,7 +96,7 @@ class Client:
                 self.ignore_list.append(utils.join_paths(relative_path, PATH))
             # otherwise if server is about to send new dir name, create a new dir.
             elif comment == 'NEW_DIR':
-                relative_path = self.client_file.readline().strip().decode()
+                relative_path = utils.replace_separators(self.client_file.readline().strip().decode())
                 os.makedirs(utils.join_paths(relative_path, PATH), exist_ok=True)
                 # add path to ignore list - for watchdog to ignore.
                 self.ignore_list.extend([utils.join_paths(relative_path, PATH)] * 2)
