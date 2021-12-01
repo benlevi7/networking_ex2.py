@@ -9,6 +9,7 @@ import os
 import time
 import utils
 
+# initialize variables to hold arguments.
 SEP = os.path.sep
 server = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
 PORT = int(sys.argv[1])
@@ -32,61 +33,83 @@ def verify_existing_client(client_id):
 
 # return client's path by providing an id.
 def get_client_path(client_id):
-    return utils.join_path_relativepath(client_id, PATH)
+    return utils.join_paths(client_id, PATH)
 
 
 # generate new ID using characters and numbers.
 def generate_id():
     characters = string.ascii_uppercase + string.ascii_lowercase + string.digits
     generated_id = ''.join(random.choice(characters) for i in range(128))
-    os.mkdir(utils.join_path_relativepath(generated_id, PATH))
+    os.mkdir(utils.join_paths(generated_id, PATH))
     return generated_id
 
 
-def send_updates(client_id, client_index):
-    list_updates = dict[(client_id, client_index)]
+# send_updates - if client requested an update, send all updates according to client's id and session id.
+def send_updates(client_id, client_session_id):
+    list_updates = dict[(client_id, client_session_id)]
+    # send number of expected updates to be sent.
     utils.send_int(client_socket, len(list_updates))
-    print('Updates size: -----' + str(len(list_updates)))
-    for t in list_updates:
-        utils.send_string(client_socket, t[0])
-        if t[0] == 'NEW_FILE':
-            utils.send_created_file(client_socket, utils.join_path_relativepath(t[1], get_client_path(client_id)),
-                                    get_client_path(client_id))
-        else:
-            utils.send_string(client_socket, t[1])
+    # for each update in the list:
+    for operation in list_updates:
+        # send operation.
+        utils.send_string(client_socket, operation[0])
+        # if operation is creation of a new file, work accordingly and send the whole file.
+        if operation[0] == 'NEW_FILE':
+            utils.push_file(client_socket, client_file,
+                            utils.join_paths(operation[1], get_client_path(client_id)), get_client_path(client_id))
 
-        print('t[0] ==    ' + str(t[0]))
-        print('t[1] ==    ' + str(t[1]))
+        # otherwise send the operation as is.
+        else:
+            utils.send_string(client_socket, operation[1])
+
+    # clear all updates.
     list_updates.clear()
 
 
-def add_update(client_id, client_index, comment, src):
-    keys = dict.keys()
-    for t in keys:
-        if t[0] == client_id and t[1] != client_index:
-            print(t)
-            print('Adding update ' + comment)
-            dict[(client_id, t[1])].append((comment, src))
+# add_update - add the given update to all client's with corresponding id and different session id.
+def add_update(client_id, client_session_id, comment, src):
+    for operation in dict.keys():
+        if operation[0] == client_id and operation[1] != client_session_id:
+            dict[(client_id, operation[1])].append((comment, src))
+
+# ben's update
+#def check_update(client_id, recv_client_index):
+#    client_path = get_client_path(client_id)
+#    get_comment = client_file.readline().strip().decode()
+#    print(get_comment)
+#    go_to_update(client_id, recv_client_index, client_path, get_comment)
 
 
-def check_update(client_id, recv_client_index):
+def check_update(client_id, client_session_id, update):
     client_path = get_client_path(client_id)
-    comment = client_file.readline().strip().decode()
-    if comment == 'UPDATE_TIME':
-        send_updates(client_id, recv_client_index)
+    # if UPDATE_TIME comment received - move to sending all updates to client.
+    if update == 'UPDATE_TIME':
+        send_updates(client_id, client_session_id)
         return
+
     # if NEW_FILE comment received - move to creating requested file.
-    elif comment == 'NEW_FILE':
-        src = utils.pull_new_file(client_file, client_path)
-        add_update(client_id, recv_client_index, comment, src)
-    elif comment == 'NEW_DIR':
+    elif update == 'NEW_FILE':
+        src = utils.pull_new_file(client_socket, client_file, client_path)
+        add_update(client_id, client_session_id, update, src)
+
+    # if NEW_DIR comment received - move to creating new folder.
+    elif update == 'NEW_DIR':
         src = client_file.readline().strip().decode()
-        os.makedirs(utils.join_path_relativepath(src, client_path), exist_ok=True)
-        add_update(client_id, recv_client_index, comment, src)
-    # if DELETE_FILE comment received - move to deleting requested file.
-    elif comment == 'DELETE':
+        if not os.path.exists(utils.join_paths(src, client_path)):
+            os.makedirs(utils.join_paths(src, client_path), exist_ok=True)
+            add_update(client_id, client_session_id, update, src)
+
+    # if DELETE_FILE comment received - move to deleting requested file
+    elif update == 'DELETE':
         src = utils.pull_delete_file(client_file, client_path)
-        add_update(client_id, recv_client_index, comment, src)
+        add_update(client_id, client_session_id, update, src)
+
+    # if CHANGE comment received - move to deleting and creation a new file.
+    elif update == 'CHANGE':
+        update = client_file.readline().strip().decode()  # 'DELETE'
+        check_update(client_id, client_session_id, update)
+        update = client_file.readline().strip().decode()  # 'NEW'
+        check_update(client_id, client_session_id, update)
 
 
 create_main_directory()
@@ -96,24 +119,37 @@ while True:
     # Accept new client.
     client_socket, client_address = server.accept()
     with client_socket, client_socket.makefile('rb') as client_file:
-        client_index = str(random.randint(1, sys.maxsize))
         # Receive client ID.
         client_id = client_file.readline().strip().decode()
-        print(client_id)
+        # receive session id from client - will be used only if client exists.
+        client_session_id = client_file.readline().strip().decode()
         # verify received id - if exists push all folders to client, otherwise create new client and pull data.
         if verify_existing_client(client_id):
+            # receive comment from client.
             comment = client_file.readline().strip().decode()
+            # if comment is first connection from current session, push all data from client's folder to client.
             if comment == 'SYN_DATA':
-                dict[(client_id, client_index)] = []
-                utils.send_string(client_socket, client_index)
-                utils.push_data(client_socket, get_client_path(client_id))
+                client_session_id = str(random.randint(1, sys.maxsize))
+                # initialize new session.
+                dict[(client_id, client_session_id)] = []
+                utils.send_string(client_socket, client_session_id)
+                # push directory to client.
+                utils.push_data(client_socket, client_file, get_client_path(client_id))
+            # otherwise client wants an update from the server.
             else:
-                check_update(client_id, comment)
+                check_update(client_id, client_session_id, comment)
+        # otherwise client is not an existing client.
         else:
+            client_session_id = str(random.randint(1, sys.maxsize))
+            # generate new id.
             client_id = generate_id()
-            dict[(client_id, client_index)] = []
+            # initialize an empty dictionary for following client.
+            dict[(client_id, client_session_id)] = []
+            # send id to client.
             utils.send_string(client_socket, client_id)
-            utils.send_string(client_socket, client_index)
-            utils.pull_data(client_file, get_client_path(client_id))
-
+            # send session id to client.
+            utils.send_string(client_socket, client_session_id)
+            # pull all data from given client.
+            utils.pull_data(client_socket, client_file, get_client_path(client_id))
+        # close client's socket.
         client_file.close()
