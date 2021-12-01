@@ -116,7 +116,7 @@ def push_file(client_socket, client_file, src_path, path):
 # per request delete requested file.
 def pull_delete_file(client_file, path):
     # receive relative path.
-    relative_path = client_file.readline().strip().decode()
+    relative_path = replace_separators(client_file.readline().strip().decode())
     # join relative path with folder's path.
     full_path = join_paths(relative_path, path)
     # if files exists, check if is actually a folder, if so create a folder otherwise delete the file.
