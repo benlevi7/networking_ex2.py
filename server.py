@@ -68,6 +68,19 @@ def send_updates(client_id, client_session_id):
 
 # add_update - add the given update to all client's with corresponding id and different session id.
 def add_update(client_id, client_session_id, comment, src):
+    flag = 0
+    if comment == 'DELETE':
+        for operation in dict.keys():
+            if operation[0] == client_id and operation[1] != client_session_id:
+                flag = 0
+                for update in dict[operation]:
+                    if update[0] == 'NEW_FILE' and update[1] == src:
+                        dict[operation].remove(update)
+                        flag = 1
+                if flag == 0:
+                    dict[(client_id, operation[1])].append((comment, src))
+        return
+
     for operation in dict.keys():
         if operation[0] == client_id and operation[1] != client_session_id:
             dict[(client_id, operation[1])].append((comment, src))
