@@ -171,6 +171,8 @@ while True:
             client_id = generate_id()
             # initialize an empty dictionary for following client.
             dict[(client_id, client_session_id)] = []
+            # print id.
+            print(client_id)
             # send id to client.
             utils.send_string(client_socket, client_id)
             # send session id to client.
