@@ -7,17 +7,23 @@ import time
 SEP = os.path.sep
 
 
-# basic usage of makefile to send strings over TCP.
+# send_string - basic usage of makefile to send strings over TCP.
+#    @param sock - the socket used to send the message over TCP.
+#    @param string - given string to send over TCP.
 def send_string(sock,string):
     sock.sendall(string.encode() + b'\n')
 
 
-# basic usage of makefile to send ints over TCP.
+# send_int - basic usage of makefile to send ints over TCP.
+    # @param sock - the socket used to send the message over TCP.
+    # @param int - given int to send over TCP.
 def send_int(sock, integer):
     sock.sendall(str(integer).encode() + b'\n')
 
 
-# replace_seperators - will replace separators according to system.
+# replace_separators - will replace separators according to system.
+    # @param path - the path for the operation.
+    # return - returns fixed path with correct separators.
 def replace_separators(path):
     if SEP == '/':
         return str(path).replace('\\', SEP)
@@ -25,6 +31,9 @@ def replace_separators(path):
 
 
 # join_paths - will join both relative path and general path with correct separators.
+    # @param relative_path - relative path provided.
+    # @param folder_path - main folder path provided.
+    # return - returns fixed folder + relative path path for future use.
 def join_paths(relative_path, folder_path):
     # if relative path does not start with a separator, insert one.
     if not str(relative_path).startswith('/') and not str(relative_path).startswith('\\'):
@@ -38,6 +47,10 @@ def join_paths(relative_path, folder_path):
 
 
 # pull_data - will be used to pull all data into path folder.
+    # @param client_socket - the socket used to send the message over TCP.
+    # @param client_file - makefile object of the given socket.
+    # @param path - destination for pull request.
+    # return - returns the relative path received for future use.
 def pull_data(client_socket, client_file, path):
     # get number of files expected to be received.
     num_files = int(client_file.readline())
@@ -53,7 +66,11 @@ def pull_data(client_socket, client_file, path):
         os.makedirs(join_paths(client_file.readline().strip().decode(), path), exist_ok=True)
 
 
-# per request create requested file.
+# pull_new_file - per request create requested file.
+    # @param client_socket - the socket used to send the message over TCP.
+    # @param client_file - makefile object of the given socket.
+    # @param path - destination for pull request.
+    # return - returns the relative path received for future use.
 def pull_new_file(client_socket, client_file, path):
     # receive relative path from client and create a path with corresponding separator.
     relative_path = replace_separators(client_file.readline().strip().decode())
@@ -78,6 +95,9 @@ def pull_new_file(client_socket, client_file, path):
 
 
 # push_data - per request push all data inside the path folder.
+    # @param socket - the socket used to send the message over TCP.
+    # @param client_file - makefile object of the given socket.
+    # @param path - destination for pull request.
 def push_data(socket, client_file, path):
     # find all empty dirs and store them in a designated list.
     list_of_empty_dirs = list()
@@ -101,6 +121,9 @@ def push_data(socket, client_file, path):
 
 
 # push_file - receives file to be sent and sends it.
+    # @param client_socket - the socket used to send the message over TCP.
+    # @param client_file - makefile object of the given socket.
+    # @param src_path - location of the desired file.
 def push_file(client_socket, client_file, src_path, path):
     # eject relative path from given src_path.
     relative_path = str(src_path)[len(path):]
@@ -113,7 +136,10 @@ def push_file(client_socket, client_file, src_path, path):
         client_socket.sendall(f.read())
 
 
-# per request delete requested file.
+# pull_delete_file - per request delete requested file.
+    # @param client_file - makefile object of the given socket.
+    # @param path - main folder's path.
+    # return - returns the relative path received for future use.
 def pull_delete_file(client_file, path):
     # receive relative path.
     relative_path = replace_separators(client_file.readline().strip().decode())
@@ -130,6 +156,7 @@ def pull_delete_file(client_file, path):
 
 
 # delete_not_empty_dir - make sure given folder is empty before deleting it.
+    # @param path - main folder's path.
 def delete_not_empty_dir(path):
     # iterate over the folder and remove all files and folder's inside accordingly.
     for root, dirs, files in os.walk(path, topdown=False):

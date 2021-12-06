@@ -10,7 +10,10 @@ from watchdog.observers import Observer
 from watchdog.events import FileSystemEventHandler
 import utils
 
-# initialize variables to hold arguments.
+# -----------------------------------------------------------
+# Basic variables - initialization
+#    Assign arguments to newly created variables.
+# -----------------------------------------------------------
 IP = sys.argv[1]
 PORT = int(sys.argv[2])
 PATH = str(sys.argv[3])
@@ -20,9 +23,12 @@ SEP = os.path.sep
 
 # -----------------------------------------------------------
 # Class Client - in-charge to hold all data related to current client.
+#   Hold all socket related fields.
+#   Handle client-server transfers.
 # -----------------------------------------------------------
 class Client:
-    # Constructor.
+
+    # Constructor - initialization of basic variables.
     def __init__(self):
         # initialize new socket.
         self.s = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
@@ -36,6 +42,9 @@ class Client:
         # ignore paths came from updates - for future watchdog use.
         self.ignore_list = list()
 
+    # initialize_connection - initialize first connection to server.
+    #   if client's ID was provided, initialize pull comment with the server.
+    #   otherwise ID was not provided, initialize push request and store season and client's ID.
     def initialize_connection(self):
         # check if argument 5 exists meaning client entered with existing ID.
         try:
@@ -65,20 +74,25 @@ class Client:
         self.last_update = time.time()
 
     # socket_close method will be in-charge of closing socket and file.
+        # return - none.
     def socket_close(self):
         self.s.close()
         self.client_file.close()
 
     # socket_rst - method will be in-charge of initialize new socket.
+        # return - none.
     def socket_rst(self):
+        # Socket reset.
         self.s = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
         self.s.connect((IP, PORT))
         self.client_file = self.s.makefile('rb')
+
         # after initializing connection, send server client's id + session id.
         utils.send_string(self.s, self.id)
         utils.send_string(self.s, self.session_id)
 
     # update_request - method will be in-charge of notifying a server an update is needed with current client.
+        # return - none.
     def update_request(self):
         self.ignore_list.clear()
         # send update request to server.
@@ -119,10 +133,13 @@ class Watcher:
         self.client = client
 
     # run method - will be in-charged of running main loop for client, on update will connect to server.
+        # return - none.
     def run(self):
+        # Observer initialization.
         my_event_handler = Handler(self.client)
         self.my_observer.schedule(my_event_handler, PATH, recursive=True)
         self.my_observer.start()
+
         try:
             while True:
                 # if update time interval arrived, connect to server and update.
@@ -147,6 +164,8 @@ class Handler(FileSystemEventHandler):
         self.client = client
 
     # send_created_file method - if watchdog detected new file created in the folder, notify the server by request.
+        # @param src_path -> source path of file for given event.
+        # return - none.
     def send_created_file(self, src_path):
         relative_path = str(src_path)[len(PATH):]
         # of path is actually a dir and not a file.
@@ -159,18 +178,22 @@ class Handler(FileSystemEventHandler):
             utils.push_file(self.client.s, self.client.client_file, src_path, PATH)
 
     # send_delete_file - if watchdog detected file or folder being delete, notify the server by request.
+        # @param src_path -> source path of file for given event.
     def send_delete_file(self, src_path):
         relative_path = str(src_path)[len(PATH):]
         utils.send_string(self.client.s, 'DELETE')
         utils.send_string(self.client.s, relative_path)
 
     # send_modify_file - if watchdog detected file or folder being modified, notify the server by delete and creation.
+        # @param src_path -> source path of file for given event.
+        # @param dest_path -> destination path of file for given event.
     def send_modify_file(self, src_path, dest_path):
         utils.send_string(self.client.s, 'CHANGE')
         self.send_delete_file(src_path)
         self.send_created_file(dest_path)
 
     # on_any_event - method for the watchdog module, on any event watchdog thread will arrive here working accordingly.
+        # @param event - the current event detected by watchdog module.
     def on_any_event(self, event):
         # sleep to make sure updates took place.
         time.sleep(0.5)
@@ -181,13 +204,12 @@ class Handler(FileSystemEventHandler):
                 self.client.ignore_list.remove(event.src_path)
             return
 
-        # windows case #####
+        # windows case
         if (SEP == '\\') and (not os.path.isdir(event.src_path)) and (event.event_type == 'modified'):
             self.client.socket_rst()
             self.send_modify_file(event.src_path, event.src_path)
             self.client.socket_close()
             return
-        #####################
 
         # if event is temporary created file by system ignore.
         if ((str(event.src_path).split(SEP))[-1])[0] == '.':
@@ -216,7 +238,9 @@ class Handler(FileSystemEventHandler):
         self.client.socket_close()
 
 
+###################################
 c = Client()
 c.initialize_connection()
 w = Watcher(c)
 w.run()
+##################################

@@ -6,7 +6,6 @@ import socket
 import string
 import sys
 import os
-import time
 import utils
 
 # initialize variables to hold arguments.
@@ -19,12 +18,15 @@ server.listen()
 
 
 # on first server's run, create client's main folder if not created previously.
+#   return - none.
 def create_main_directory():
     if not os.path.exists(PATH):
         os.mkdir(PATH)
 
 
 # verify if client is an existing client.
+    # @param client_id - id of a given client.
+    # return - none.
 def verify_existing_client(client_id):
     if os.path.exists(get_client_path(client_id)):
         return True
@@ -32,11 +34,14 @@ def verify_existing_client(client_id):
 
 
 # return client's path by providing an id.
+    # @param client_id - id of a given client.
+    # return - none.
 def get_client_path(client_id):
     return utils.join_paths(client_id, PATH)
 
 
 # generate new ID using characters and numbers.
+    # return - none.
 def generate_id():
     characters = string.ascii_uppercase + string.ascii_lowercase + string.digits
     generated_id = ''.join(random.choice(characters) for i in range(128))
@@ -45,6 +50,9 @@ def generate_id():
 
 
 # send_updates - if client requested an update, send all updates according to client's id and session id.
+    # @param client_id - id of a given client.
+    # @param client_session_id - session id help distinguish between same client from different systems.
+    # return - none.
 def send_updates(client_id, client_session_id):
     list_updates = dict[(client_id, client_session_id)]
     # send number of expected updates to be sent.
@@ -67,12 +75,19 @@ def send_updates(client_id, client_session_id):
 
 
 # add_update - add the given update to all client's with corresponding id and different session id.
+    # @param client_id - id of a given client.
+    # @param client_session_id - session id help distinguish between same client from different systems.
+    # @param comment - the comment sent from client, indicating the server what operation is expected to happend.
+    # @parm src - src path of given update.
+    # return - none.
 def add_update(client_id, client_session_id, comment, src):
-    flag = 0
+    # if comment sent from client was indicating a deletion of file or folder.
     if comment == 'DELETE':
+        # search for given client in the main queue - make sure previous creation of same file is deleted.
         for operation in dict.keys():
             if operation[0] == client_id and operation[1] != client_session_id:
                 flag = 0
+                # make sure previous creation of same file is deleted from the queue.
                 for update in dict[operation]:
                     if update[0] == 'NEW_FILE' and update[1] == src:
                         dict[operation].remove(update)
@@ -80,12 +95,17 @@ def add_update(client_id, client_session_id, comment, src):
                 if flag == 0:
                     dict[(client_id, operation[1])].append((comment, src))
         return
-
+    # iterate over operation for each system with corresponding client's id and different session id insert given update
     for operation in dict.keys():
         if operation[0] == client_id and operation[1] != client_session_id:
             dict[(client_id, operation[1])].append((comment, src))
 
 
+# check_update - with given update comment check what update would the client inform the server with.
+    # @param client_id - id of a given client.
+    # @param client_session_id - session id help distinguish between same client from different systems.
+    # @param update - the update sent from client, indicating the server what operation is expected to happen.
+    # return - none.
 def check_update(client_id, client_session_id, update):
     client_path = get_client_path(client_id)
     # if UPDATE_TIME comment received - move to sending all updates to client.
