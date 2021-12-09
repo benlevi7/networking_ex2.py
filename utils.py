@@ -132,8 +132,19 @@ def push_file(client_socket, client_file, src_path, path):
     file_size = os.path.getsize(src_path)
     send_int(client_socket, file_size)
     # open the desired file and sent it.
-    with open(str(src_path), 'rb') as f:
-        client_socket.sendall(f.read())
+    #######################
+    openFile(client_socket, src_path)
+
+
+def openFile(client_socket, src_path):
+    try:
+        with open(str(src_path), 'rb') as f:
+            content = f.read()
+            client_socket.sendall(content)
+    except:
+        time.sleep(1)
+        openFile(client_socket, src_path)
+    #######################
 
 
 # pull_delete_file - per request delete requested file.
